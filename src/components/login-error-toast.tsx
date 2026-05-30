@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react"
 import { toast } from "sonner"
 
+import { resolveLoginErrorMessage } from "@/lib/toast-messages"
+
 type LoginErrorToastProps = {
   error?: string
 }
@@ -16,7 +18,7 @@ export function LoginErrorToast({ error }: LoginErrorToastProps) {
     }
 
     shownRef.current = error
-    toast.error(error)
+    toast.error(resolveLoginErrorMessage())
   }, [error])
 
   return null

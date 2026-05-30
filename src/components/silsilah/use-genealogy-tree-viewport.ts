@@ -38,6 +38,27 @@ function getViewportSize(ref: RefObject<HTMLElement | null>) {
   return { width: element.clientWidth, height: element.clientHeight }
 }
 
+function panForCard(
+  personId: string,
+  cards: GenealogyLayoutCard[],
+  bounds: { width: number; height: number },
+  scale: number,
+  viewport: { width: number; height: number },
+) {
+  const card = cards.find((item) => item.personId === personId)
+
+  if (!card) {
+    return null
+  }
+
+  const content = treeContentSize(bounds, scale)
+  return clampTreePan(
+    panToTopCard(card, scale, viewport, content),
+    viewport,
+    content,
+  )
+}
+
 export function useGenealogyTreeViewport({
   bounds,
   cards,
@@ -45,11 +66,15 @@ export function useGenealogyTreeViewport({
   zoomEnabled = false,
 }: UseGenealogyTreeViewportOptions) {
   const viewportRef = useRef<HTMLDivElement>(null)
-  const fitScale = useTreeFitScale(viewportRef, bounds)
+  const { fitScale, isReady: isFitScaleReady } = useTreeFitScale(
+    viewportRef,
+    bounds,
+  )
   const [userZoom, setUserZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [isViewReady, setIsViewReady] = useState(false)
 
   const dragRef = useRef<{
     pointerId: number
@@ -58,17 +83,12 @@ export function useGenealogyTreeViewport({
     panX: number
     panY: number
   } | null>(null)
-  const lastFocusRef = useRef<string | null>(null)
-  const userAdjustedRef = useRef(false)
+  const prevFocusRef = useRef<string | null>(null)
 
   const scale = fitScale * userZoom
 
-  const markUserAdjusted = useCallback(() => {
-    userAdjustedRef.current = true
-  }, [])
-
   const applyPan = useCallback(
-    (next: { x: number; y: number }, animate = false) => {
+    (next: { x: number; y: number }) => {
       const viewport = getViewportSize(viewportRef)
 
       if (!viewport || !bounds || scale <= 0) {
@@ -78,60 +98,48 @@ export function useGenealogyTreeViewport({
 
       const content = treeContentSize(bounds, scale)
       setPan(clampTreePan(next, viewport, content))
-      setIsAnimating(animate)
     },
     [bounds, scale],
   )
 
-  const focusCard = useCallback(
-    (personId: string | null | undefined, animate = true) => {
-      const viewport = getViewportSize(viewportRef)
-
-      if (!viewport || !bounds || !cards || !personId || scale <= 0) {
-        return
-      }
-
-      const card = cards.find((item) => item.personId === personId)
-
-      if (!card) {
-        return
-      }
-
-      const content = treeContentSize(bounds, scale)
-      applyPan(panToTopCard(card, scale, viewport, content), animate)
-    },
-    [applyPan, bounds, cards, scale],
-  )
-
   useLayoutEffect(() => {
-    if (!focusPersonId) {
+    if (
+      !isFitScaleReady ||
+      !focusPersonId ||
+      !bounds ||
+      !cards?.length ||
+      scale <= 0
+    ) {
       return
     }
 
-    const personChanged = lastFocusRef.current !== focusPersonId
+    // Hanya fokus ulang saat fokus berpindah atau tampilan pertama kali siap.
+    // Saat user zoom/geser (scale berubah, fokus tetap), jangan reset pan.
+    const focusChanged = prevFocusRef.current !== focusPersonId
 
-    if (personChanged) {
-      lastFocusRef.current = focusPersonId
-      userAdjustedRef.current = false
-    }
-
-    if (!personChanged && userAdjustedRef.current) {
+    if (isViewReady && !focusChanged) {
       return
     }
 
-    focusCard(focusPersonId, personChanged)
-  }, [focusCard, fitScale, focusPersonId])
-
-  useLayoutEffect(() => {
     const viewport = getViewportSize(viewportRef)
 
-    if (!viewport || !bounds || scale <= 0) {
+    if (!viewport) {
       return
     }
 
-    const content = treeContentSize(bounds, scale)
-    setPan((current) => clampTreePan(current, viewport, content))
-  }, [bounds, fitScale, scale, userZoom])
+    const nextPan = panForCard(focusPersonId, cards, bounds, scale, viewport)
+
+    if (!nextPan) {
+      return
+    }
+
+    const shouldAnimate = prevFocusRef.current !== null && focusChanged
+
+    prevFocusRef.current = focusPersonId
+    setPan(nextPan)
+    setIsAnimating(shouldAnimate)
+    setIsViewReady(true)
+  }, [bounds, cards, focusPersonId, isFitScaleReady, scale, isViewReady])
 
   const zoomBy = useCallback(
     (factor: number, anchor?: { x: number; y: number }) => {
@@ -168,9 +176,8 @@ export function useGenealogyTreeViewport({
       setUserZoom(nextUserZoom)
       setPan(clampTreePan(nextPan, viewportSize, content))
       setIsAnimating(false)
-      markUserAdjusted()
     },
-    [bounds, fitScale, markUserAdjusted, pan, scale, userZoom, zoomEnabled],
+    [bounds, fitScale, pan, scale, userZoom, zoomEnabled],
   )
 
   const zoomIn = useCallback(() => zoomBy(TREE_ZOOM_STEP), [zoomBy])
@@ -178,32 +185,24 @@ export function useGenealogyTreeViewport({
 
   const resetView = useCallback(() => {
     setUserZoom(1)
-    setIsAnimating(true)
-    userAdjustedRef.current = false
-    lastFocusRef.current = null
 
-    if (focusPersonId) {
-      lastFocusRef.current = focusPersonId
-      const viewport = getViewportSize(viewportRef)
-
-      if (!viewport || !bounds || !cards || fitScale <= 0) {
-        setPan({ x: 0, y: 0 })
-        return
-      }
-
-      const card = cards.find((item) => item.personId === focusPersonId)
-
-      if (!card) {
-        setPan({ x: 0, y: 0 })
-        return
-      }
-
-      const content = treeContentSize(bounds, fitScale)
-      setPan(panToTopCard(card, fitScale, viewport, content))
+    if (!focusPersonId || !bounds || !cards?.length || fitScale <= 0) {
+      setPan({ x: 0, y: 0 })
       return
     }
 
-    setPan({ x: 0, y: 0 })
+    const viewport = getViewportSize(viewportRef)
+
+    if (!viewport) {
+      return
+    }
+
+    const nextPan = panForCard(focusPersonId, cards, bounds, fitScale, viewport)
+
+    if (nextPan) {
+      setPan(nextPan)
+      setIsAnimating(true)
+    }
   }, [bounds, cards, fitScale, focusPersonId])
 
   const handlePointerDown = useCallback(
@@ -226,10 +225,9 @@ export function useGenealogyTreeViewport({
 
       setIsDragging(true)
       setIsAnimating(false)
-      markUserAdjusted()
       event.currentTarget.setPointerCapture(event.pointerId)
     },
-    [markUserAdjusted, pan.x, pan.y],
+    [pan.x, pan.y],
   )
 
   const handlePointerMove = useCallback(
@@ -240,13 +238,10 @@ export function useGenealogyTreeViewport({
         return
       }
 
-      applyPan(
-        {
-          x: drag.panX + event.clientX - drag.startX,
-          y: drag.panY + event.clientY - drag.startY,
-        },
-        false,
-      )
+      applyPan({
+        x: drag.panX + event.clientX - drag.startX,
+        y: drag.panY + event.clientY - drag.startY,
+      })
     },
     [applyPan],
   )
@@ -298,6 +293,7 @@ export function useGenealogyTreeViewport({
     scaledHeight,
     isDragging,
     isAnimating,
+    isViewReady,
     zoomIn,
     zoomOut,
     resetView,

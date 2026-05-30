@@ -1,5 +1,9 @@
 import { cache } from "react"
 
+import type { Person } from "@prisma/client"
+
+import { canManagePerson } from "@/lib/auth/person-scope"
+import { getDisplayAge } from "@/lib/silsilah/format"
 import { prisma } from "@/lib/prisma"
 import { getChildrenFromPerson, getRootPersons } from "@/lib/silsilah/person-utils"
 import { getSilsilahTreePayload } from "@/lib/silsilah/tree-payload"
@@ -84,26 +88,63 @@ export async function getPersonAuditLogs(personId: string) {
   })
 }
 
+export type PersonDetailLimited = {
+  id: string
+  fullName: string
+  gender: Person["gender"]
+  isAlive: boolean
+  photoUrl: string | null
+  age: number | null
+  phone: string | null
+  address: string | null
+}
+
+export type PersonDetailResult =
+  | {
+      access: "full"
+      person: PersonWithRelations
+      viewerContext: import("@/lib/silsilah/person-relation-context").PersonViewerContext | null
+    }
+  | { access: "limited"; person: PersonDetailLimited }
+
 export async function getPersonDetailForViewer(
   actorPersonId: string,
   targetPersonId: string,
-) {
-  const [person, viewer] = await Promise.all([
-    getPersonById(targetPersonId),
-    getPersonById(actorPersonId),
-  ])
+): Promise<PersonDetailResult | null> {
+  const person = await getPersonById(targetPersonId)
 
   if (!person) {
     return null
   }
 
-  const { buildPersonViewerContext } = await import(
-    "@/lib/silsilah/person-relation-context"
-  )
+  const canManage = await canManagePerson(actorPersonId, targetPersonId)
 
-  const viewerContext = viewer
-    ? buildPersonViewerContext(viewer, person)
-    : null
+  if (canManage) {
+    const viewer = await getPersonById(actorPersonId)
+    const { buildPersonViewerContext } = await import(
+      "@/lib/silsilah/person-relation-context"
+    )
+    const viewerContext = viewer
+      ? buildPersonViewerContext(viewer, person)
+      : null
 
-  return { person, viewerContext }
+    return { access: "full", person, viewerContext }
+  }
+
+  return {
+    access: "limited",
+    person: {
+      id: person.id,
+      fullName: person.fullName,
+      gender: person.gender,
+      isAlive: person.isAlive,
+      photoUrl: person.photoUrl,
+      age: getDisplayAge(person.birthDate, {
+        deathDate: person.deathDate,
+        isAlive: person.isAlive,
+      }),
+      phone: person.phone,
+      address: person.address,
+    },
+  }
 }

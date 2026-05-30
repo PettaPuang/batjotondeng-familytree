@@ -17,14 +17,11 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { isNextRedirectError } from "@/lib/is-next-redirect-error"
 import { toastMessages } from "@/lib/toast-messages"
 
 type DeletePersonButtonProps = {
   personId: string
   personName: string
-  /** Server action (mis. halaman edit) — redirect setelah sukses */
-  action?: (formData: FormData) => Promise<void>
   /** Dipanggil setelah hapus via API (mis. sheet detail) */
   onDeleted?: () => void
   className?: string
@@ -33,7 +30,6 @@ type DeletePersonButtonProps = {
 export function DeletePersonButton({
   personId,
   personName,
-  action,
   onDeleted,
   className,
 }: DeletePersonButtonProps) {
@@ -43,12 +39,6 @@ export function DeletePersonButton({
   const handleConfirm = () => {
     startTransition(async () => {
       try {
-        if (action) {
-          await action(new FormData())
-          toast.success(toastMessages.personDeleted)
-          return
-        }
-
         const response = await fetch(`/api/silsilah/person/${personId}`, {
           method: "DELETE",
         })
@@ -64,11 +54,6 @@ export function DeletePersonButton({
         setOpen(false)
         onDeleted?.()
       } catch (error) {
-        if (isNextRedirectError(error)) {
-          toast.success(toastMessages.personDeleted)
-          throw error
-        }
-
         toast.error(
           error instanceof Error ? error.message : toastMessages.defaultError,
         )

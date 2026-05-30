@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 
 import { prisma } from "@/lib/prisma"
@@ -10,6 +11,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+
+export const metadata: Metadata = {
+  title: "Pernikahan",
+}
 
 export default async function PernikahanPage() {
   const marriages = await prisma.marriage.findMany({

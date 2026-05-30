@@ -9,16 +9,16 @@ import { Input } from "@/components/ui/input"
 import { normalizeName } from "@/lib/normalize-name"
 import { genderCardClass } from "@/lib/silsilah/person-display"
 import { cn } from "@/lib/utils"
-import type { Person } from "@prisma/client"
+import type { TreeNodePerson } from "@/lib/silsilah/types"
 
 type PersonNameListProps = {
   activePersonId?: string
   onAddPerson?: () => void
   onPersonSelect: (personId: string) => void
-  persons: Person[]
+  persons: TreeNodePerson[]
 }
 
-function personMatchesQuery(person: Person, query: string) {
+function personMatchesQuery(person: TreeNodePerson, query: string) {
   const normalized = normalizeName(query)
 
   if (!normalized) {
@@ -69,7 +69,7 @@ export function PersonNameList({
           />
         </div>
         {query.trim() ? (
-          <p className="text-muted-foreground mt-1.5 px-0.5 text-2.75">
+          <p className="text-muted-foreground mt-1.5 px-0.5 text-xs">
             {filteredPersons.length} dari {persons.length} anggota
           </p>
         ) : null}
@@ -99,8 +99,7 @@ export function PersonNameList({
                   type="button"
                 >
                   <PersonSummaryRow
-                    birthDate={person.birthDate}
-                    deathDate={person.deathDate}
+                    age={person.age}
                     gender={person.gender}
                     isAlive={person.isAlive}
                     name={person.fullName}

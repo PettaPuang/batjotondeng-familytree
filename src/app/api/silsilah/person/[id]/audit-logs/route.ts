@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
-import { requireApiSession } from "@/lib/api/unauthorized"
+import { canManagePerson } from "@/lib/auth/person-scope"
+import { forbiddenResponse, requireApiSession } from "@/lib/api/unauthorized"
 import { getPersonAuditLogs, getPersonById } from "@/lib/silsilah/queries"
 
 type RouteContext = {
@@ -8,10 +9,15 @@ type RouteContext = {
 }
 
 export async function GET(_request: Request, context: RouteContext) {
-  const { response } = await requireApiSession()
+  const { response, actor } = await requireApiSession()
   if (response) return response
 
   const { id } = await context.params
+
+  if (!(await canManagePerson(actor.personId, id))) {
+    return forbiddenResponse("Anda tidak memiliki akses ke log audit anggota ini.")
+  }
+
   const person = await getPersonById(id)
 
   if (!person) {

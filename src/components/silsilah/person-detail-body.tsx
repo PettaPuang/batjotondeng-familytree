@@ -2,23 +2,42 @@
 
 import { useEffect, useState } from "react"
 
-import { PersonProfileDetail } from "@/components/silsilah/person-profile-detail"
+import {
+  PersonLimitedDetail,
+  PersonProfileDetail,
+  type LimitedPerson,
+} from "@/components/silsilah/person-profile-detail"
 import { PersonRelationDetail } from "@/components/silsilah/person-relation-detail"
 import { formatPersonTreeName } from "@/lib/silsilah/person-display"
 import type { PersonViewerContext } from "@/lib/silsilah/person-relation-context"
 import type { PersonWithRelations } from "@/lib/silsilah/types"
-import type { Person } from "@prisma/client"
 
-export type PersonDetailPayload = {
-  person: PersonWithRelations
-  viewerContext: PersonViewerContext | null
-}
+export type PersonDetailPayload =
+  | {
+      access: "full"
+      person: PersonWithRelations
+      viewerContext: PersonViewerContext | null
+    }
+  | { access: "limited"; person: LimitedPerson }
 
 type PersonDetailBodyProps = {
   personId: string
   onTitleChange?: (title: string) => void
   onLoaded?: (payload: PersonDetailPayload) => void
 }
+
+type FullResponse = {
+  access: "full"
+  person: PersonWithRelations
+  viewerContext?: PersonViewerContext | null
+}
+
+type LimitedResponse = {
+  access: "limited"
+  person: LimitedPerson
+}
+
+type DetailResponse = FullResponse | LimitedResponse
 
 function normalizePersonWithRelations(
   person: PersonWithRelations,
@@ -37,10 +56,7 @@ export function PersonDetailBody({
   onTitleChange,
   onLoaded,
 }: PersonDetailBodyProps) {
-  const [person, setPerson] = useState<Person | null>(null)
-  const [viewerContext, setViewerContext] = useState<PersonViewerContext | null>(
-    null,
-  )
+  const [payload, setPayload] = useState<PersonDetailPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -52,27 +68,38 @@ export function PersonDetailBody({
           throw new Error("Gagal memuat data anggota.")
         }
 
-        return response.json() as Promise<
-          PersonWithRelations & { viewerContext?: PersonViewerContext | null }
-        >
+        return response.json() as Promise<DetailResponse>
       })
       .then((data) => {
         if (cancelled) {
           return
         }
 
-        const { viewerContext: context, ...personData } = data
-        const normalized = normalizePersonWithRelations(personData)
-        setPerson(normalized)
-        setViewerContext(context ?? null)
-        onTitleChange?.(
-          formatPersonTreeName(
-            normalized.fullName,
-            normalized.gender,
-            normalized.isAlive,
-          ),
-        )
-        onLoaded?.({ person: normalized, viewerContext: context ?? null })
+        let next: PersonDetailPayload
+
+        if (data.access === "full") {
+          const person = normalizePersonWithRelations(data.person)
+          next = {
+            access: "full",
+            person,
+            viewerContext: data.viewerContext ?? null,
+          }
+          onTitleChange?.(
+            formatPersonTreeName(person.fullName, person.gender, person.isAlive),
+          )
+        } else {
+          next = { access: "limited", person: data.person }
+          onTitleChange?.(
+            formatPersonTreeName(
+              data.person.fullName,
+              data.person.gender,
+              data.person.isAlive,
+            ),
+          )
+        }
+
+        setPayload(next)
+        onLoaded?.(next)
       })
       .catch(() => {
         if (!cancelled) {
@@ -89,14 +116,20 @@ export function PersonDetailBody({
     return <p className="text-destructive text-sm">{error}</p>
   }
 
-  if (!person) {
+  if (!payload) {
     return <p className="text-muted-foreground text-sm">Memuat...</p>
+  }
+
+  if (payload.access === "limited") {
+    return <PersonLimitedDetail person={payload.person} />
   }
 
   return (
     <div className="flex flex-col gap-6">
-      {viewerContext ? <PersonRelationDetail context={viewerContext} /> : null}
-      <PersonProfileDetail person={person} />
+      {payload.viewerContext ? (
+        <PersonRelationDetail context={payload.viewerContext} />
+      ) : null}
+      <PersonProfileDetail person={payload.person} />
     </div>
   )
 }

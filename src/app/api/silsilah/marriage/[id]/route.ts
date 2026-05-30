@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
 
 import { ManageForbiddenError } from "@/lib/auth/errors"
-import { assertActorInMarriage } from "@/lib/auth/person-scope"
+import { assertCanManageMarriage } from "@/lib/auth/person-scope"
 import { forbiddenResponse, requireApiSession } from "@/lib/api/unauthorized"
 import { parseDateInput } from "@/lib/silsilah/format"
+import { prismaErrorMessage } from "@/lib/silsilah/prisma-error"
 import { prisma } from "@/lib/prisma"
 
 type RouteContext = {
@@ -43,7 +44,7 @@ export async function PUT(request: Request, context: RouteContext) {
   const { id } = await context.params
 
   try {
-    await assertActorInMarriage(actor.personId, id)
+    await assertCanManageMarriage(actor.personId, id)
 
     const body = await request.json()
     const marriageDate = body.marriageDate
@@ -68,6 +69,11 @@ export async function PUT(request: Request, context: RouteContext) {
       return forbiddenResponse(error.message)
     }
 
+    const mapped = prismaErrorMessage(error)
+    if (mapped) {
+      return NextResponse.json({ error: mapped }, { status: 400 })
+    }
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Gagal menyimpan." },
       { status: 400 },
@@ -82,7 +88,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   const { id } = await context.params
 
   try {
-    await assertActorInMarriage(actor.personId, id)
+    await assertCanManageMarriage(actor.personId, id)
 
     await prisma.marriage.delete({
       where: { id },
@@ -94,6 +100,14 @@ export async function DELETE(_request: Request, context: RouteContext) {
       return forbiddenResponse(error.message)
     }
 
-    throw error
+    const mapped = prismaErrorMessage(error)
+    if (mapped) {
+      return NextResponse.json({ error: mapped }, { status: 400 })
+    }
+
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Gagal menghapus." },
+      { status: 400 },
+    )
   }
 }

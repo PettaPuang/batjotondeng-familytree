@@ -1,5 +1,6 @@
 import type { Gender } from "@prisma/client"
 
+import { isVercelBlobUrl } from "@/lib/blob/person-photo"
 import { parseDateInput } from "@/lib/silsilah/format"
 
 export function readPersonFormData(formData: FormData) {
@@ -29,7 +30,7 @@ export function readPersonFormData(formData: FormData) {
     phone: phone || null,
     address: address || null,
     notes: notes || null,
-    photoUrl: photoUrl || null,
+    photoUrl: photoUrl && isVercelBlobUrl(photoUrl) ? photoUrl : null,
     isAlive,
     deathDate: isAlive ? null : deathDate,
   }

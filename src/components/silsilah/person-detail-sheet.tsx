@@ -60,7 +60,7 @@ export function PersonDetailSheet({
   }
 
   const openEdit = useCallback(() => {
-    if (!detailPayload) {
+    if (!detailPayload || detailPayload.access !== "full") {
       return
     }
 
@@ -120,18 +120,20 @@ export function PersonDetailSheet({
           </SheetBody>
 
           <SheetFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-            <Button
-              className="w-full sm:w-auto"
-              disabled={!personId}
-              onClick={() => setAuditOpen(true)}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              Log Audit
-            </Button>
+            {canManage && detailPayload?.access === "full" ? (
+              <Button
+                className="w-full sm:w-auto"
+                disabled={!personId}
+                onClick={() => setAuditOpen(true)}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                Log Audit
+              </Button>
+            ) : null}
             <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-2">
-              {canManage && personId && detailPayload ? (
+              {canManage && personId && detailPayload?.access === "full" ? (
                 <>
                   <DeletePersonButton
                     className="w-full sm:w-auto"
@@ -161,7 +163,7 @@ export function PersonDetailSheet({
         personName={sheetTitle}
       />
 
-      {detailPayload ? (
+      {detailPayload?.access === "full" ? (
         <PersonFormSheet
           mode="edit"
           onOpenChange={setEditOpen}

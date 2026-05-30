@@ -1,12 +1,9 @@
-import type { Marriage, Person, PersonParent } from "@prisma/client"
-
-import type { TreePerson } from "@/lib/silsilah/types"
+import type { TreeNodePerson, TreePerson } from "@/lib/silsilah/types"
 
 export type MarriageTreeRecord = {
   id: string
   husbandId: string
   wifeId: string
-  marriageDate: Date | null
   isActive: boolean
   childIds: string[]
 }
@@ -17,7 +14,7 @@ export type ParentLinkRecord = {
 }
 
 export type SilsilahTreePayload = {
-  persons: Person[]
+  persons: TreeNodePerson[]
   marriages: MarriageTreeRecord[]
   parentLinks: ParentLinkRecord[]
 }
@@ -26,15 +23,19 @@ function parentLinkId(childId: string, marriageId: string) {
   return `${childId}:${marriageId}`
 }
 
-type MarriageWithRelations = Marriage & {
-  wife: Person
-  husband: Person
-  children: (PersonParent & { child: Person })[]
+type MarriageWithRelations = {
+  id: string
+  husbandId: string
+  wifeId: string
+  isActive: boolean
+  husband: TreeNodePerson
+  wife: TreeNodePerson
+  children: { id: string; childId: string; marriageId: string; child: TreeNodePerson }[]
 }
 
 function buildMarriageRecord(
   record: MarriageTreeRecord,
-  personById: Map<string, Person>,
+  personById: Map<string, TreeNodePerson>,
 ): MarriageWithRelations {
   const husband = personById.get(record.husbandId)
   const wife = personById.get(record.wifeId)
@@ -47,7 +48,6 @@ function buildMarriageRecord(
     id: record.id,
     husbandId: record.husbandId,
     wifeId: record.wifeId,
-    marriageDate: record.marriageDate,
     isActive: record.isActive,
     husband,
     wife,
@@ -125,7 +125,6 @@ export function hydrateTreePersons(payload: SilsilahTreePayload): TreePerson[] {
           id: record.id,
           husbandId: record.husbandId,
           wifeId: record.wifeId,
-          marriageDate: record.marriageDate,
           isActive: record.isActive,
           husband,
           wife,

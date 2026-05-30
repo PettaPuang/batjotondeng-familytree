@@ -121,14 +121,11 @@ function parseBirthDateInput(input: string) {
   return new Date(Date.UTC(year, month - 1, day))
 }
 
-export async function verifyPersonIdentity(input: VerifyPersonInput) {
-  const trimmedName = normalizeName(input.name)
-  const trimmedParentName = normalizeName(input.parentName)
-  const parts = nameParts(trimmedName)
-  const birthDate = parseBirthDateInput(input.birthDate.trim())
+async function loadNameCandidates(name: string, birthDate?: Date) {
+  const parts = nameParts(normalizeName(name))
 
-  if (parts.length < 1 || !trimmedParentName || !birthDate) {
-    return null
+  if (parts.length < 1) {
+    return []
   }
 
   const nameFilter =
@@ -148,9 +145,9 @@ export async function verifyPersonIdentity(input: VerifyPersonInput) {
           })),
         }
 
-  const candidates = await prisma.person.findMany({
+  const results = await prisma.person.findMany({
     where: {
-      birthDate,
+      ...(birthDate ? { birthDate } : {}),
       ...nameFilter,
     },
     include: {
@@ -167,11 +164,45 @@ export async function verifyPersonIdentity(input: VerifyPersonInput) {
     },
   })
 
-  for (const person of candidates) {
-    if (!matchesPersonName(trimmedName, person.fullName, person.nickname)) {
-      continue
-    }
+  return results.filter((person) =>
+    matchesPersonName(name, person.fullName, person.nickname),
+  )
+}
 
+export async function checkNameExists(name: string): Promise<boolean> {
+  return (await loadNameCandidates(name)).length > 0
+}
+
+export async function checkParentExists(
+  name: string,
+  parentName: string,
+): Promise<boolean> {
+  const norm = normalizeName(parentName)
+
+  if (!norm) {
+    return false
+  }
+
+  const candidates = await loadNameCandidates(name)
+
+  return candidates.some((person) =>
+    person.parents.some(({ marriage }) =>
+      parentInMarriageMatches(norm, marriage),
+    ),
+  )
+}
+
+export async function verifyPersonIdentity(input: VerifyPersonInput) {
+  const birthDate = parseBirthDateInput(input.birthDate.trim())
+  const trimmedParentName = normalizeName(input.parentName)
+
+  if (!trimmedParentName || !birthDate) {
+    return null
+  }
+
+  const candidates = await loadNameCandidates(input.name, birthDate)
+
+  for (const person of candidates) {
     if (!person.birthDate || !matchesBirthDate(person.birthDate, input.birthDate)) {
       continue
     }

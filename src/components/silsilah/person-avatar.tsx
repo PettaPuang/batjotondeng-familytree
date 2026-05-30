@@ -42,7 +42,7 @@ export function PersonAvatar({
         )}
       >
         <Image
-          alt=""
+          alt={`Foto ${name}`}
           className="object-cover"
           fill
           sizes={size === "lg" ? "56px" : size === "sm" ? "32px" : "40px"}

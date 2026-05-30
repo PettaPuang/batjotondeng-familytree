@@ -4,22 +4,22 @@ import {
   forwardRef,
   useCallback,
   useImperativeHandle,
+  useMemo,
   useState,
 } from "react"
 
-import { FamilyTreeView } from "@/components/silsilah/family-tree-view"
+import { GenealogyTree } from "@/components/silsilah/genealogy-tree"
 import { PersonDetailSheet } from "@/components/silsilah/person-detail-sheet"
 import { PersonNameList } from "@/components/silsilah/person-name-list"
 import { Button } from "@/components/ui/button"
-import type { TreePerson } from "@/lib/silsilah/types"
-import type { Person } from "@prisma/client"
+import type { TreeNodePerson, TreePerson } from "@/lib/silsilah/types"
 
 export type SilsilahExplorerHandle = {
   openPerson: (personId: string) => void
 }
 
 type SilsilahExplorerProps = {
-  persons: Person[]
+  persons: TreeNodePerson[]
   memberCount: number
   subjectPersonId?: string
   treePersons: TreePerson[]
@@ -43,13 +43,16 @@ export const SilsilahExplorer = forwardRef<
   },
   ref,
 ) {
-  const [treeFocusPersonId, setTreeFocusPersonId] = useState(
-    () => subjectPersonId ?? persons[0]?.id ?? null,
+  const [treeFocusPersonId, setTreeFocusPersonId] = useState<string | null>(
+    () => subjectPersonId ?? null,
   )
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
 
-  const manageableSet = new Set(manageablePersonIds)
+  const manageableSet = useMemo(
+    () => new Set(manageablePersonIds),
+    [manageablePersonIds],
+  )
 
   const focusTree = useCallback((personId: string) => {
     setTreeFocusPersonId(personId)
@@ -80,7 +83,7 @@ export const SilsilahExplorer = forwardRef<
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <PersonNameList
-              activePersonId={treeFocusPersonId ?? undefined}
+              activePersonId={treeFocusPersonId ?? subjectPersonId ?? undefined}
               onAddPerson={onAddPerson}
               onPersonSelect={focusTree}
               persons={persons}
@@ -99,11 +102,11 @@ export const SilsilahExplorer = forwardRef<
           </div>
           <div className="flex min-h-0 flex-1 p-2 sm:p-4">
             <div className="h-full min-h-0 w-full">
-            <FamilyTreeView
+            <GenealogyTree
+              focusPersonId={treeFocusPersonId}
               onPersonSelect={openPerson}
               persons={treePersons}
-              scrollToPersonId={treeFocusPersonId}
-              subjectPersonId={subjectPersonId}
+              selfPersonId={subjectPersonId}
             />
             </div>
           </div>

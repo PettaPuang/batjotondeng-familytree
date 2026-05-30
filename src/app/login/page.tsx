@@ -1,5 +1,11 @@
+import type { Metadata } from "next"
+
 import { LoginWizard } from "@/components/silsilah/login-wizard"
 import { LoginErrorToast } from "@/components/login-error-toast"
+
+export const metadata: Metadata = {
+  title: "Masuk",
+}
 
 type LoginPageProps = {
   searchParams: Promise<{ error?: string; callbackUrl?: string }>

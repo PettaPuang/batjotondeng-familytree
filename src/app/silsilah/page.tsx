@@ -1,8 +1,14 @@
+import type { Metadata } from "next"
+
 import { auth } from "@/auth"
 import { SilsilahPageContent } from "@/components/silsilah/silsilah-page-content"
 import { getCreatePersonRelationOptions } from "@/lib/auth/create-person-options"
 import { getManageablePersonIds } from "@/lib/auth/person-scope"
 import { getSilsilahTreePayload } from "@/lib/silsilah/queries"
+
+export const metadata: Metadata = {
+  title: "Silsilah",
+}
 
 export default async function SilsilahPage() {
   const session = await auth()

@@ -3,6 +3,7 @@
 import { createMarriageAction } from "@/app/silsilah/actions"
 import { ActionToastForm } from "@/components/action-toast-form"
 import { DatePickerField } from "@/components/silsilah/date-picker-field"
+import { FormSubmitButton } from "@/components/silsilah/form-submit-button"
 import { MarriageCreateFields } from "@/components/silsilah/marriage-create-fields"
 import {
   Field,
@@ -35,12 +36,7 @@ export function MarriageCreateForm({ husbands, wives }: MarriageCreateFormProps)
           />
         </Field>
 
-        <button
-          className="bg-primary text-primary-foreground h-9 w-fit rounded-md px-4 text-sm font-medium"
-          type="submit"
-        >
-          Simpan Pernikahan
-        </button>
+        <FormSubmitButton>Simpan Pernikahan</FormSubmitButton>
       </FieldGroup>
     </ActionToastForm>
   )

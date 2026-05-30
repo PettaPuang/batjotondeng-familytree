@@ -8,6 +8,7 @@ import {
   jsonBodyToFormData,
   updatePersonFromForm,
 } from "@/lib/silsilah/person-mutations"
+import { prismaErrorMessage } from "@/lib/silsilah/prisma-error"
 
 type RouteContext = {
   params: Promise<{ id: string }>
@@ -24,8 +25,16 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Person not found" }, { status: 404 })
   }
 
+  if (detail.access === "limited") {
+    return NextResponse.json({
+      access: "limited",
+      person: detail.person,
+    })
+  }
+
   return NextResponse.json({
-    ...detail.person,
+    access: "full",
+    person: detail.person,
     viewerContext: detail.viewerContext,
   })
 }
@@ -44,6 +53,11 @@ export async function PUT(request: Request, context: RouteContext) {
   } catch (error) {
     if (error instanceof ManageForbiddenError) {
       return forbiddenResponse(error.message)
+    }
+
+    const mapped = prismaErrorMessage(error)
+    if (mapped) {
+      return NextResponse.json({ error: mapped }, { status: 400 })
     }
 
     return NextResponse.json(
@@ -67,6 +81,14 @@ export async function DELETE(_request: Request, context: RouteContext) {
       return forbiddenResponse(error.message)
     }
 
-    throw error
+    const mapped = prismaErrorMessage(error)
+    if (mapped) {
+      return NextResponse.json({ error: mapped }, { status: 400 })
+    }
+
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Gagal menghapus." },
+      { status: 400 },
+    )
   }
 }

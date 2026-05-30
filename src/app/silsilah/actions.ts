@@ -7,16 +7,15 @@ import { ManageForbiddenError } from "@/lib/auth/errors"
 import {
   assertCanCreateMarriage,
   assertCanCreatePersonWithRelation,
-  assertCanLinkParent,
   parseCreatePersonRelation,
 } from "@/lib/auth/person-scope"
 import { requireActor } from "@/lib/auth/session-actor"
 import { parseDateInput } from "@/lib/silsilah/format"
 import {
   createPersonFromForm,
-  deletePersonById,
   updatePersonFromForm,
 } from "@/lib/silsilah/person-mutations"
+import { prismaErrorMessage } from "@/lib/silsilah/prisma-error"
 import { prisma } from "@/lib/prisma"
 
 function revalidateSilsilah() {
@@ -25,6 +24,9 @@ function revalidateSilsilah() {
 }
 
 function formatActionError(error: unknown) {
+  const mapped = prismaErrorMessage(error)
+  if (mapped) return mapped
+
   if (error instanceof ManageForbiddenError) {
     return error.message
   }
@@ -87,7 +89,6 @@ export async function updatePersonSheetAction(
     })
 
     revalidateSilsilah()
-    revalidatePath(`/silsilah/${id}`)
 
     return {
       ok: true,
@@ -103,21 +104,6 @@ export async function updatePersonSheetAction(
       submittedAt: null,
     }
   }
-}
-
-export async function updatePersonAction(id: string, formData: FormData) {
-  const actor = await requireActor()
-  await updatePersonFromForm(actor, id, formData)
-  revalidateSilsilah()
-  revalidatePath(`/silsilah/${id}`)
-  redirect("/silsilah")
-}
-
-export async function deletePersonAction(id: string) {
-  const actor = await requireActor()
-  await deletePersonById(actor, id)
-  revalidateSilsilah()
-  redirect("/silsilah")
 }
 
 export async function createMarriageAction(formData: FormData) {
@@ -144,35 +130,4 @@ export async function createMarriageAction(formData: FormData) {
 
   revalidateSilsilah()
   redirect("/silsilah/pernikahan")
-}
-
-export async function linkParentAction(formData: FormData) {
-  const actor = await requireActor()
-
-  const childId = String(formData.get("childId") ?? "")
-  const marriageId = String(formData.get("marriageId") ?? "")
-
-  if (!childId || !marriageId) {
-    throw new Error("Anak dan pernikahan orang tua wajib dipilih.")
-  }
-
-  await assertCanLinkParent(actor.personId, childId, marriageId)
-
-  await prisma.personParent.upsert({
-    where: {
-      childId_marriageId: {
-        childId,
-        marriageId,
-      },
-    },
-    update: {},
-    create: {
-      childId,
-      marriageId,
-    },
-  })
-
-  revalidateSilsilah()
-  revalidatePath(`/silsilah/${childId}`)
-  redirect("/silsilah")
 }

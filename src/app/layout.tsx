@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { Geist_Mono, Noto_Sans, Raleway } from "next/font/google"
 
 import "./globals.css"
@@ -13,6 +14,14 @@ const fontMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
 })
+
+export const metadata: Metadata = {
+  title: {
+    default: "Silsilah Keluarga Puang Batjo Tondeng",
+    template: "%s · Silsilah Keluarga",
+  },
+  description: "Aplikasi silsilah keluarga besar Puang Batjo Tondeng.",
+}
 
 export default function RootLayout({
   children,

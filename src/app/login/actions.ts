@@ -3,6 +3,19 @@
 import { redirect } from "next/navigation"
 
 import { signIn } from "@/auth"
+import { toastMessages } from "@/lib/toast-messages"
+import { checkNameExists, checkParentExists } from "@/lib/verify-person"
+
+export async function checkNameStepAction(name: string): Promise<boolean> {
+  return checkNameExists(name)
+}
+
+export async function checkParentStepAction(
+  name: string,
+  parentName: string,
+): Promise<boolean> {
+  return checkParentExists(name, parentName)
+}
 
 export async function verifyAndEnter(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim()
@@ -18,10 +31,15 @@ export async function verifyAndEnter(formData: FormData) {
   })
 
   if (result?.error) {
-    throw new Error(
-      "Data tidak cocok. Periksa nama (atau nama panggilan), nama orang tua, dan tanggal lahir.",
-    )
+    throw new Error(toastMessages.loginFailed)
   }
 
-  redirect(typeof callbackUrl === "string" && callbackUrl ? callbackUrl : "/silsilah")
+  const target =
+    typeof callbackUrl === "string" &&
+    callbackUrl.startsWith("/") &&
+    !callbackUrl.startsWith("//")
+      ? callbackUrl
+      : "/silsilah"
+
+  redirect(target)
 }

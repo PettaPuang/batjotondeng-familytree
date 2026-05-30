@@ -4,6 +4,7 @@ import { ManageForbiddenError } from "@/lib/auth/errors"
 import { assertCanCreateMarriage } from "@/lib/auth/person-scope"
 import { forbiddenResponse, requireApiSession } from "@/lib/api/unauthorized"
 import { parseDateInput } from "@/lib/silsilah/format"
+import { prismaErrorMessage } from "@/lib/silsilah/prisma-error"
 import { prisma } from "@/lib/prisma"
 
 export async function GET() {
@@ -58,6 +59,11 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof ManageForbiddenError) {
       return forbiddenResponse(error.message)
+    }
+
+    const mapped = prismaErrorMessage(error)
+    if (mapped) {
+      return NextResponse.json({ error: mapped }, { status: 400 })
     }
 
     return NextResponse.json(

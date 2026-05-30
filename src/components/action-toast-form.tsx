@@ -40,6 +40,11 @@ export function ActionToastForm({
           return
         }
 
+        if (pending) {
+          event.preventDefault()
+          return
+        }
+
         event.preventDefault()
         const formData = new FormData(event.currentTarget)
 
@@ -60,7 +65,9 @@ export function ActionToastForm({
         })
       }}
     >
-      {children}
+      <fieldset disabled={pending} className="contents">
+        {children}
+      </fieldset>
     </form>
   )
 }

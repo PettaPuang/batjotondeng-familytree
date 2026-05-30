@@ -33,7 +33,7 @@ export function clampTreePan(
   return { x, y }
 }
 
-/** Jarak kartu fokus dari tepi atas viewport — ruang untuk generasi di atas (kepala keluarga). */
+/** Jarak kartu fokus dari tepi atas viewport. */
 export const TREE_FOCUS_TOP_PADDING = 56
 
 export function panToTopCard(

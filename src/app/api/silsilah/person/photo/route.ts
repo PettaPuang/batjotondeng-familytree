@@ -4,6 +4,7 @@ import { NextResponse } from "next/server"
 import { forbiddenResponse, requireApiSession } from "@/lib/api/unauthorized"
 import { ManageForbiddenError } from "@/lib/auth/errors"
 import {
+  assertPersonPhotoSignature,
   buildPersonPhotoPath,
   resolvePersonPhotoContentType,
   validatePersonPhotoFile,
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
     }
 
     validatePersonPhotoFile(file)
+    await assertPersonPhotoSignature(file)
 
     const blob = await put(buildPersonPhotoPath(actor.personId, file.name), file, {
       access: "private",

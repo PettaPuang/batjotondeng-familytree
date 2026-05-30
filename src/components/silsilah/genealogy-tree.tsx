@@ -15,26 +15,20 @@ import "./genealogy-tree.css"
 type GenealogyTreeProps = {
   onPersonSelect: (personId: string) => void
   persons: TreePerson[]
-  subjectPersonId?: string
-  /** Geser tampilan ke kartu ini tanpa mengubah layout pohon */
-  scrollToPersonId?: string | null
+  /** User login — highlight kartu sendiri */
+  selfPersonId?: string
+  /** Kartu yang difokuskan (tengah atas) saat dipilih dari daftar */
+  focusPersonId?: string | null
 }
 
 export function GenealogyTree({
   onPersonSelect,
   persons,
-  subjectPersonId,
-  scrollToPersonId,
+  selfPersonId,
+  focusPersonId,
 }: GenealogyTreeProps) {
-  const layout = useMemo(() => {
-    if (!subjectPersonId) {
-      return null
-    }
+  const layout = useMemo(() => buildGenealogyLayout(persons), [persons])
 
-    return buildGenealogyLayout(persons, subjectPersonId)
-  }, [persons, subjectPersonId])
-
-  const focusPersonId = scrollToPersonId ?? subjectPersonId ?? null
   const [zoomEnabled, setZoomEnabled] = useState(false)
 
   const {
@@ -46,6 +40,7 @@ export function GenealogyTree({
     scaledHeight,
     isDragging,
     isAnimating,
+    isViewReady,
     zoomIn,
     zoomOut,
     resetView,
@@ -53,7 +48,7 @@ export function GenealogyTree({
   } = useGenealogyTreeViewport({
     bounds: layout?.bounds ?? null,
     cards: layout?.cards,
-    focusPersonId,
+    focusPersonId: focusPersonId ?? selfPersonId ?? null,
     zoomEnabled,
   })
 
@@ -68,7 +63,7 @@ export function GenealogyTree({
     [resetView],
   )
 
-  if (!layout || !subjectPersonId) {
+  if (!layout || persons.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
         Belum ada data silsilah. Tambahkan anggota terlebih dahulu.
@@ -93,10 +88,11 @@ export function GenealogyTree({
         <div
           className={cn(
             "relative shrink-0",
-            isAnimating && "transition-transform duration-300 ease-out",
+            isViewReady && isAnimating && "transition-transform duration-300 ease-out",
           )}
           style={{
             height: scaledHeight,
+            opacity: isViewReady ? 1 : 0,
             transform: `translate(${pan.x}px, ${pan.y}px)`,
             width: scaledWidth,
           }}
@@ -133,7 +129,9 @@ export function GenealogyTree({
             </svg>
 
             {layout.cards.map((card) => {
-              const isSelf = card.personId === subjectPersonId
+              const isSelf = selfPersonId
+                ? card.personId === selfPersonId
+                : false
 
               return (
                 <button
@@ -153,9 +151,8 @@ export function GenealogyTree({
                   type="button"
                 >
                   <PersonSummaryRow
+                    age={card.person.age}
                     avatarSize="lg"
-                    birthDate={card.person.birthDate}
-                    deathDate={card.person.deathDate}
                     gender={card.person.gender}
                     isAlive={card.person.isAlive}
                     name={card.person.fullName}

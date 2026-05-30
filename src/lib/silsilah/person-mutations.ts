@@ -1,11 +1,12 @@
 import { deleteStoredPersonPhoto } from "@/lib/blob/person-photo"
 import {
   applyCreatePersonRelation,
+  assertCanManageMarriage,
   assertCanManagePerson,
   parseCreatePersonRelation,
-  updateMarriageDateFromForm,
   type CreatePersonRelation,
 } from "@/lib/auth/person-scope"
+import { parseDateInput } from "@/lib/silsilah/format"
 import { logPersonCreated, logPersonDeleted, logPersonUpdated } from "@/lib/silsilah/person-audit"
 import { readPersonFormData } from "@/lib/silsilah/person-form-server"
 import { prisma } from "@/lib/prisma"
@@ -30,16 +31,23 @@ export async function createPersonFromForm(
   relation: CreatePersonRelation,
 ) {
   const data = readPersonFormData(formData)
-  const person = await prisma.person.create({ data })
 
-  await applyCreatePersonRelation(actor.personId, person.id, relation)
+  return prisma.$transaction(async (tx) => {
+    const person = await tx.person.create({ data })
 
-  await logPersonCreated(person, {
-    personId: actor.personId,
-    name: actor.name,
+    await applyCreatePersonRelation(actor.personId, person.id, relation, tx)
+
+    await logPersonCreated(
+      person,
+      {
+        personId: actor.personId,
+        name: actor.name,
+      },
+      tx,
+    )
+
+    return person
   })
-
-  return person
 }
 
 export async function updatePersonFromForm(
@@ -57,18 +65,41 @@ export async function updatePersonFromForm(
   }
 
   const data = readPersonFormData(formData)
-  const after = await prisma.person.update({
-    where: { id: personId },
-    data,
-  })
 
-  if (options?.includeMarriageDate) {
-    await updateMarriageDateFromForm(actor.personId, formData)
+  const marriageId = options?.includeMarriageDate
+    ? String(formData.get("marriageId") ?? "").trim()
+    : ""
+
+  if (marriageId) {
+    await assertCanManageMarriage(actor.personId, marriageId)
   }
 
-  await logPersonUpdated(before, after, {
-    personId: actor.personId,
-    name: actor.name,
+  const after = await prisma.$transaction(async (tx) => {
+    const person = await tx.person.update({
+      where: { id: personId },
+      data,
+    })
+
+    if (marriageId) {
+      await tx.marriage.update({
+        where: { id: marriageId },
+        data: {
+          marriageDate: parseDateInput(String(formData.get("marriageDate") ?? "")),
+        },
+      })
+    }
+
+    await logPersonUpdated(
+      before,
+      person,
+      {
+        personId: actor.personId,
+        name: actor.name,
+      },
+      tx,
+    )
+
+    return person
   })
 
   await cleanupReplacedPersonPhoto(before.photoUrl, after.photoUrl)
@@ -85,14 +116,20 @@ export async function deletePersonById(actor: MutationActor, personId: string) {
     throw new Error("Anggota tidak ditemukan.")
   }
 
-  await logPersonDeleted(person, {
-    personId: actor.personId,
-    name: actor.name,
+  await prisma.$transaction(async (tx) => {
+    await logPersonDeleted(
+      person,
+      {
+        personId: actor.personId,
+        name: actor.name,
+      },
+      tx,
+    )
+
+    await tx.person.delete({ where: { id: personId } })
   })
 
   await deleteStoredPersonPhoto(person.photoUrl)
-
-  await prisma.person.delete({ where: { id: personId } })
 
   return person
 }

@@ -5,7 +5,11 @@ import { Loader2Icon } from "lucide-react"
 import { useState, useTransition, type FormEvent } from "react"
 import { toast } from "sonner"
 
-import { verifyAndEnter } from "@/app/login/actions"
+import {
+  checkNameStepAction,
+  checkParentStepAction,
+  verifyAndEnter,
+} from "@/app/login/actions"
 import { isNextRedirectError } from "@/lib/is-next-redirect-error"
 import { normalizeName } from "@/lib/normalize-name"
 import { toastMessages } from "@/lib/toast-messages"
@@ -66,7 +70,32 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
       return
     }
 
-    setStep((current) => Math.min(current + 1, 3))
+    startTransition(async () => {
+      if (step === 1) {
+        const exists = await checkNameStepAction(name)
+
+        if (!exists) {
+          setStepError("Nama tidak ditemukan.")
+          return
+        }
+
+        setStepError(null)
+        setStep(2)
+        return
+      }
+
+      if (step === 2) {
+        const exists = await checkParentStepAction(name, parentName)
+
+        if (!exists) {
+          setStepError("Nama orang tua tidak cocok.")
+          return
+        }
+
+        setStepError(null)
+        setStep(3)
+      }
+    })
   }
 
   function goBack() {
@@ -93,9 +122,7 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
           throw error
         }
 
-        toast.error(
-          error instanceof Error ? error.message : toastMessages.loginFailed,
-        )
+        setStepError("Tanggal lahir tidak cocok dengan data.")
       }
     })
   }
@@ -184,8 +211,21 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
               />
             </Field>
 
-            <Button className="w-full" onClick={goNext} size="sm" type="button">
-              Lanjut
+            <Button
+              className="w-full"
+              disabled={pending}
+              onClick={goNext}
+              size="sm"
+              type="button"
+            >
+              {pending ? (
+                <>
+                  <Loader2Icon className="animate-spin" />
+                  Memverifikasi...
+                </>
+              ) : (
+                "Lanjut"
+              )}
             </Button>
           </FieldGroup>
         ) : null}
@@ -203,8 +243,21 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
             </Field>
 
             <div className="flex flex-col gap-1.5">
-              <Button className="w-full" onClick={goNext} size="sm" type="button">
-                Lanjut
+              <Button
+                className="w-full"
+                disabled={pending}
+                onClick={goNext}
+                size="sm"
+                type="button"
+              >
+                {pending ? (
+                  <>
+                    <Loader2Icon className="animate-spin" />
+                    Memverifikasi...
+                  </>
+                ) : (
+                  "Lanjut"
+                )}
               </Button>
               <Button className="w-full" onClick={goBack} size="sm" type="button" variant="outline">
                 Kembali

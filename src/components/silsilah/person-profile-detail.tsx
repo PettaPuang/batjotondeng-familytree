@@ -55,3 +55,31 @@ export function PersonProfileDetail({ person }: PersonProfileDetailProps) {
     </dl>
   )
 }
+
+export type LimitedPerson = {
+  id: string
+  fullName: string
+  gender: Person["gender"]
+  isAlive: boolean
+  photoUrl: string | null
+  age: number | null
+  phone: string | null
+  address: string | null
+}
+
+export function PersonLimitedDetail({ person }: { person: LimitedPerson }) {
+  return (
+    <dl className="flex flex-col gap-4">
+      <DetailRow
+        label="Nama lengkap"
+        value={formatPersonTreeName(person.fullName, person.gender, person.isAlive)}
+      />
+      <DetailRow
+        label="Umur"
+        value={person.age !== null ? `${person.age} thn` : "—"}
+      />
+      <DetailRow label="Telepon" value={formatOptionalText(person.phone)} />
+      <DetailRow label="Alamat" value={formatOptionalText(person.address)} />
+    </dl>
+  )
+}

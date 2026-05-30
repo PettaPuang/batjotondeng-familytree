@@ -117,6 +117,7 @@ export function PersonPhotoField({
 
       <input
         accept="image/jpeg,image/png,image/webp"
+        aria-label="Unggah foto"
         className="sr-only"
         id={`${idPrefix}photoFile`}
         onChange={(event) => void handleFileChange(event)}

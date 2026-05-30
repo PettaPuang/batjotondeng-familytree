@@ -1,7 +1,9 @@
+import type { Prisma } from "@prisma/client"
 import { cache } from "react"
 
 import { ManageForbiddenError } from "@/lib/auth/errors"
 import { parseDateInput } from "@/lib/silsilah/format"
+import { upsertPersonParentLink } from "@/lib/silsilah/person-parent"
 import { prisma } from "@/lib/prisma"
 
 type ActorGraph = {
@@ -109,6 +111,29 @@ export const getManageablePersonIds = cache(
   },
 )
 
+async function getMarriageCouple(marriageId: string) {
+  const marriage = await prisma.marriage.findUnique({
+    where: { id: marriageId },
+    select: { husbandId: true, wifeId: true },
+  })
+
+  if (!marriage) {
+    throw new Error("Pernikahan tidak ditemukan.")
+  }
+
+  return marriage
+}
+
+function actorInMarriage(
+  actorPersonId: string,
+  marriage: { husbandId: string; wifeId: string },
+) {
+  return (
+    marriage.husbandId === actorPersonId ||
+    marriage.wifeId === actorPersonId
+  )
+}
+
 export async function canManagePerson(
   actorPersonId: string,
   targetPersonId: string,
@@ -132,27 +157,41 @@ export async function assertCanManagePerson(
   }
 }
 
-export async function assertActorInMarriage(
+export async function assertCanManageMarriage(
   actorPersonId: string,
   marriageId: string,
 ): Promise<void> {
-  const marriage = await prisma.marriage.findUnique({
-    where: { id: marriageId },
-    select: { husbandId: true, wifeId: true },
-  })
+  const marriage = await getMarriageCouple(marriageId)
 
-  if (!marriage) {
-    throw new Error("Pernikahan tidak ditemukan.")
-  }
+  const [canManageHusband, canManageWife] = await Promise.all([
+    canManagePerson(actorPersonId, marriage.husbandId),
+    canManagePerson(actorPersonId, marriage.wifeId),
+  ])
 
-  if (
-    marriage.husbandId !== actorPersonId &&
-    marriage.wifeId !== actorPersonId
-  ) {
+  if (!canManageHusband || !canManageWife) {
     throw new ManageForbiddenError(
-      "Anda hanya dapat mengelola pernikahan yang melibatkan Anda sebagai suami atau istri.",
+      "Anda tidak memiliki izin untuk mengubah data pernikahan ini.",
     )
   }
+}
+
+export async function canLinkParentForChild(
+  actorPersonId: string,
+  childId: string,
+): Promise<boolean> {
+  if (!(await canManagePerson(actorPersonId, childId))) {
+    return false
+  }
+
+  if (childId === actorPersonId) {
+    return true
+  }
+
+  const graph = await loadActorGraph(actorPersonId)
+
+  return graph
+    ? graph.marriages.length + graph.marriages2.length > 0
+    : false
 }
 
 export async function assertCanLinkParent(
@@ -160,15 +199,16 @@ export async function assertCanLinkParent(
   childId: string,
   marriageId: string,
 ): Promise<void> {
-  await assertCanManagePerson(actorPersonId, childId)
+  if (!(await canLinkParentForChild(actorPersonId, childId))) {
+    throw new ManageForbiddenError()
+  }
 
-  const marriage = await prisma.marriage.findUnique({
-    where: { id: marriageId },
-    select: { husbandId: true, wifeId: true },
-  })
+  const marriage = await getMarriageCouple(marriageId)
 
-  if (!marriage) {
-    throw new Error("Pernikahan tidak ditemukan.")
+  if (childId === marriage.husbandId || childId === marriage.wifeId) {
+    throw new ManageForbiddenError(
+      "Seseorang tidak bisa menjadi anak dari pernikahannya sendiri.",
+    )
   }
 
   if (childId === actorPersonId) {
@@ -177,11 +217,7 @@ export async function assertCanLinkParent(
     return
   }
 
-  const isActorParent =
-    marriage.husbandId === actorPersonId ||
-    marriage.wifeId === actorPersonId
-
-  if (!isActorParent) {
+  if (!actorInMarriage(actorPersonId, marriage)) {
     throw new ManageForbiddenError(
       "Anda hanya dapat menghubungkan anak ke pernikahan yang melibatkan Anda sebagai orang tua.",
     )
@@ -235,7 +271,14 @@ export async function assertCanCreatePersonWithRelation(
   relation: CreatePersonRelation,
 ): Promise<void> {
   if (relation.kind === "child") {
-    await assertActorInMarriage(actorPersonId, relation.marriageId)
+    const marriage = await getMarriageCouple(relation.marriageId)
+
+    if (!actorInMarriage(actorPersonId, marriage)) {
+      throw new ManageForbiddenError(
+        "Anda hanya dapat menambah anak ke pernikahan yang melibatkan Anda.",
+      )
+    }
+
     return
   }
 
@@ -264,43 +307,20 @@ export async function applyCreatePersonRelation(
   actorPersonId: string,
   newPersonId: string,
   relation: CreatePersonRelation,
+  db: Prisma.TransactionClient | typeof prisma = prisma,
 ): Promise<void> {
   if (relation.kind === "child") {
-    await prisma.personParent.upsert({
-      where: {
-        childId_marriageId: {
-          childId: newPersonId,
-          marriageId: relation.marriageId,
-        },
-      },
-      update: {},
-      create: {
-        childId: newPersonId,
-        marriageId: relation.marriageId,
-      },
-    })
+    await upsertPersonParentLink(newPersonId, relation.marriageId, db)
     return
   }
 
   if (relation.kind === "sibling") {
-    await prisma.personParent.upsert({
-      where: {
-        childId_marriageId: {
-          childId: newPersonId,
-          marriageId: relation.parentMarriageId,
-        },
-      },
-      update: {},
-      create: {
-        childId: newPersonId,
-        marriageId: relation.parentMarriageId,
-      },
-    })
+    await upsertPersonParentLink(newPersonId, relation.parentMarriageId, db)
     return
   }
 
   if (relation.kind === "spouse") {
-    const actor = await prisma.person.findUnique({
+    const actor = await db.person.findUnique({
       where: { id: actorPersonId },
       select: { gender: true },
     })
@@ -309,7 +329,7 @@ export async function applyCreatePersonRelation(
       throw new Error("Data Anda tidak ditemukan.")
     }
 
-    const newPerson = await prisma.person.findUnique({
+    const newPerson = await db.person.findUnique({
       where: { id: newPersonId },
       select: { gender: true },
     })
@@ -325,7 +345,7 @@ export async function applyCreatePersonRelation(
     const husbandId = actor.gender === "MALE" ? actorPersonId : newPersonId
     const wifeId = actor.gender === "FEMALE" ? actorPersonId : newPersonId
 
-    await prisma.marriage.create({
+    await db.marriage.create({
       data: {
         husbandId,
         wifeId,
@@ -334,26 +354,6 @@ export async function applyCreatePersonRelation(
       },
     })
   }
-}
-
-export async function updateMarriageDateFromForm(
-  actorPersonId: string,
-  formData: FormData,
-): Promise<void> {
-  const marriageId = String(formData.get("marriageId") ?? "").trim()
-
-  if (!marriageId) {
-    return
-  }
-
-  await assertActorInMarriage(actorPersonId, marriageId)
-
-  const marriageDate = parseDateInput(String(formData.get("marriageDate") ?? ""))
-
-  await prisma.marriage.update({
-    where: { id: marriageId },
-    data: { marriageDate },
-  })
 }
 
 export async function assertCanCreateMarriage(
@@ -369,5 +369,24 @@ export async function assertCanCreateMarriage(
     throw new ManageForbiddenError(
       "Anda harus terlibat dalam pernikahan ini sebagai suami atau istri.",
     )
+  }
+
+  const [husband, wife] = await Promise.all([
+    prisma.person.findUnique({
+      where: { id: husbandId },
+      select: { gender: true },
+    }),
+    prisma.person.findUnique({
+      where: { id: wifeId },
+      select: { gender: true },
+    }),
+  ])
+
+  if (!husband || !wife) {
+    throw new Error("Data suami atau istri tidak ditemukan.")
+  }
+
+  if (husband.gender !== "MALE" || wife.gender !== "FEMALE") {
+    throw new Error("Suami harus laki-laki dan istri harus perempuan.")
   }
 }

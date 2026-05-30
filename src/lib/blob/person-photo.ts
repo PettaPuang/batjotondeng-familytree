@@ -9,7 +9,12 @@ export const PERSON_PHOTO_ALLOWED_TYPES = new Set([
 ])
 
 export function isVercelBlobUrl(url: string) {
-  return url.includes(".blob.vercel-storage.com")
+  try {
+    const { hostname } = new URL(url)
+    return hostname.endsWith(".blob.vercel-storage.com")
+  } catch {
+    return false
+  }
 }
 
 function inferImageContentType(fileName: string) {
@@ -51,6 +56,31 @@ export function validatePersonPhotoFile(file: File) {
 
   if (file.size > PERSON_PHOTO_MAX_BYTES) {
     throw new Error("Ukuran foto maksimal 5 MB.")
+  }
+}
+
+/** Verifikasi isi file lewat magic bytes, bukan hanya MIME/ekstensi yang bisa dipalsukan. */
+export async function assertPersonPhotoSignature(file: File) {
+  const header = new Uint8Array(await file.slice(0, 12).arrayBuffer())
+
+  const isJpeg = header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff
+  const isPng =
+    header[0] === 0x89 &&
+    header[1] === 0x50 &&
+    header[2] === 0x4e &&
+    header[3] === 0x47
+  const isWebp =
+    header[0] === 0x52 &&
+    header[1] === 0x49 &&
+    header[2] === 0x46 &&
+    header[3] === 0x46 &&
+    header[8] === 0x57 &&
+    header[9] === 0x45 &&
+    header[10] === 0x42 &&
+    header[11] === 0x50
+
+  if (!isJpeg && !isPng && !isWebp) {
+    throw new Error("Isi file bukan gambar JPG, PNG, atau WebP yang valid.")
   }
 }
 
