@@ -1,0 +1,76 @@
+.genealogy-tree-shell {
+  width: 100%;
+}
+
+.genealogy-tree-viewport {
+  background: color-mix(in oklch, var(--muted) 28%, transparent);
+  border-radius: 1rem;
+}
+
+.genealogy-tree-viewport--idle {
+  cursor: grab;
+}
+
+.genealogy-tree-viewport--dragging {
+  cursor: grabbing;
+}
+
+.genealogy-tree-viewport--idle .genealogy-tree-card {
+  cursor: pointer;
+}
+
+.genealogy-tree-canvas {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in oklch, var(--foreground) 7%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 20px 20px;
+}
+
+.genealogy-tree-edge {
+  stroke: color-mix(in oklch, var(--foreground) 28%, transparent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.genealogy-tree-edge--marriage {
+  stroke: oklch(0.58 0.14 18);
+  stroke-width: 2.5;
+}
+
+.genealogy-tree-edge--trunk,
+.genealogy-tree-edge--parent-child {
+  stroke: color-mix(in oklch, var(--primary) 72%, var(--foreground));
+  stroke-width: 2;
+}
+
+.genealogy-tree-card {
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 0.875rem;
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent);
+  cursor: pointer;
+  padding: 0.625rem 0.75rem;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.genealogy-tree-card:hover {
+  border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+  box-shadow: 0 6px 18px color-mix(in oklch, var(--foreground) 8%, transparent);
+  transform: translateY(-2px);
+}
+
+.genealogy-tree-card--self {
+  border-color: color-mix(in oklch, var(--primary) 45%, var(--border));
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary) 18%, transparent);
+}
+
+.genealogy-tree-card:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
