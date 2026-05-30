@@ -43,7 +43,7 @@ export function SignOutButton() {
   return (
     <AlertDialog onOpenChange={setOpen} open={open}>
       <AlertDialogTrigger asChild>
-        <Button disabled={pending} type="button" variant="outline">
+        <Button disabled={pending} size="sm" type="button" variant="outline">
           Keluar
         </Button>
       </AlertDialogTrigger>

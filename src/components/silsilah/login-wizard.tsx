@@ -1,10 +1,14 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { Loader2Icon } from "lucide-react"
+import { useState, useTransition, type FormEvent } from "react"
+import { toast } from "sonner"
 
 import { verifyAndEnter } from "@/app/login/actions"
+import { isNextRedirectError } from "@/lib/is-next-redirect-error"
 import { normalizeName } from "@/lib/normalize-name"
+import { toastMessages } from "@/lib/toast-messages"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
 import { cn } from "@/lib/utils"
@@ -31,6 +35,7 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
   const [parentName, setParentName] = useState("")
   const [birthDate, setBirthDate] = useState("")
   const [stepError, setStepError] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
 
   function validateStep(currentStep: number) {
     if (currentStep === 1) {
@@ -67,6 +72,32 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
   function goBack() {
     setStepError(null)
     setStep((current) => Math.max(current - 1, 1))
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!validateStep(3)) {
+      return
+    }
+
+    const formData = new FormData(event.currentTarget)
+
+    startTransition(async () => {
+      try {
+        await verifyAndEnter(formData)
+        toast.success(toastMessages.loginSuccess)
+      } catch (error) {
+        if (isNextRedirectError(error)) {
+          toast.success(toastMessages.loginSuccess)
+          throw error
+        }
+
+        toast.error(
+          error instanceof Error ? error.message : toastMessages.loginFailed,
+        )
+      }
+    })
   }
 
   return (
@@ -132,7 +163,7 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
         </p>
       ) : null}
 
-      <form action={verifyAndEnter} className="flex flex-col gap-4">
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
         {callbackUrl ? (
           <input name="callbackUrl" type="hidden" value={callbackUrl} />
         ) : null}
@@ -153,7 +184,7 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
               />
             </Field>
 
-            <Button className="w-full" onClick={goNext} type="button">
+            <Button className="w-full" onClick={goNext} size="sm" type="button">
               Lanjut
             </Button>
           </FieldGroup>
@@ -171,11 +202,11 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
               />
             </Field>
 
-            <div className="flex flex-col gap-2">
-              <Button className="w-full" onClick={goNext} type="button">
+            <div className="flex flex-col gap-1.5">
+              <Button className="w-full" onClick={goNext} size="sm" type="button">
                 Lanjut
               </Button>
-              <Button className="w-full" onClick={goBack} type="button" variant="outline">
+              <Button className="w-full" onClick={goBack} size="sm" type="button" variant="outline">
                 Kembali
               </Button>
             </div>
@@ -202,11 +233,25 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
               <p>Orang tua: {parentName.trim()}</p>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <Button className="w-full" type="submit">
-                Masuk ke Silsilah
+            <div className="flex flex-col gap-1.5">
+              <Button className="w-full" disabled={pending} size="sm" type="submit">
+                {pending ? (
+                  <>
+                    <Loader2Icon className="animate-spin" />
+                    Memverifikasi...
+                  </>
+                ) : (
+                  "Masuk ke Silsilah"
+                )}
               </Button>
-              <Button className="w-full" onClick={goBack} type="button" variant="outline">
+              <Button
+                className="w-full"
+                disabled={pending}
+                onClick={goBack}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
                 Kembali
               </Button>
             </div>
@@ -214,7 +259,7 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
         ) : null}
       </form>
 
-      <Button asChild className="w-full" variant="outline">
+      <Button asChild className="w-full" size="sm" variant="outline">
         <Link href="/">Kembali ke beranda</Link>
       </Button>
     </div>

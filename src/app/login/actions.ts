@@ -18,8 +18,8 @@ export async function verifyAndEnter(formData: FormData) {
   })
 
   if (result?.error) {
-    redirect(
-      `/login?error=${encodeURIComponent("Data tidak cocok. Periksa nama (atau nama panggilan), nama orang tua, dan tanggal lahir.")}`,
+    throw new Error(
+      "Data tidak cocok. Periksa nama (atau nama panggilan), nama orang tua, dan tanggal lahir.",
     )
   }
 

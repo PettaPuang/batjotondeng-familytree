@@ -5,6 +5,7 @@ export const toastMessages = {
   marriageCreated: "Pernikahan berhasil disimpan.",
   parentLinked: "Relasi orang tua berhasil disimpan.",
   signedOut: "Anda telah keluar.",
+  loginSuccess: "Berhasil masuk. Mengalihkan ke silsilah…",
   loginFailed: "Data tidak cocok. Periksa kembali informasi Anda.",
   photoUploaded: "Foto berhasil diunggah.",
   photoUploadFailed: "Gagal mengunggah foto.",

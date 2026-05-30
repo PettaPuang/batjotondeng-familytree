@@ -20,7 +20,7 @@ export default function Page() {
           </div>
         </div>
 
-        <Button asChild className="mx-auto w-full max-w-xs">
+        <Button asChild className="mx-auto w-full max-w-xs" size="sm">
           <Link href="/login">Masuk ke Silsilah</Link>
         </Button>
       </div>

@@ -79,7 +79,7 @@ export function DeletePersonButton({
   return (
     <AlertDialog onOpenChange={setOpen} open={open}>
       <AlertDialogTrigger asChild>
-        <Button className={className} type="button" variant="destructive">
+        <Button className={className} size="sm" type="button" variant="destructive">
           Hapus Anggota
         </Button>
       </AlertDialogTrigger>

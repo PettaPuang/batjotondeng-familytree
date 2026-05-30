@@ -154,13 +154,13 @@ export function PersonFormSheet({
           </form>
         </SheetBody>
 
-        <SheetFooter className="justify-end">
+        <SheetFooter className="justify-end gap-1.5 lg:gap-2">
           <SheetClose asChild>
-            <Button disabled={pending} type="button" variant="outline">
+            <Button disabled={pending} size="sm" type="button" variant="outline">
               Batal
             </Button>
           </SheetClose>
-          <Button disabled={pending || !canSubmit} form={formId} type="submit">
+          <Button disabled={pending || !canSubmit} form={formId} size="sm" type="submit">
             {pending ? (
               <>
                 <Loader2Icon className="animate-spin" />

@@ -119,31 +119,35 @@ export function PersonDetailSheet({
             ) : null}
           </SheetBody>
 
-          <SheetFooter className="flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <SheetFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <Button
               className="w-full sm:w-auto"
               disabled={!personId}
               onClick={() => setAuditOpen(true)}
+              size="sm"
               type="button"
               variant="outline"
             >
               Log Audit
             </Button>
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+            <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-2">
               {canManage && personId && detailPayload ? (
                 <>
                   <DeletePersonButton
+                    className="w-full sm:w-auto"
                     onDeleted={handleDeleted}
                     personId={personId}
                     personName={detailPayload.person.fullName}
                   />
-                  <Button onClick={openEdit} type="button">
+                  <Button className="w-full sm:w-auto" onClick={openEdit} size="sm" type="button">
                     Edit Data
                   </Button>
                 </>
               ) : null}
               <SheetClose asChild>
-                <Button variant="outline">Tutup</Button>
+                <Button className="w-full sm:w-auto" size="sm" variant="outline">
+                  Tutup
+                </Button>
               </SheetClose>
             </div>
           </SheetFooter>

@@ -13,6 +13,24 @@ export function formatDate(date: Date | string | null | undefined) {
   }).format(value)
 }
 
+/** Format ringkas untuk kartu sempit (mobile / pohon silsilah). */
+export function formatDateCompact(date: Date | string | null | undefined) {
+  const normalized = toBirthDate(date)
+
+  if (!normalized) {
+    return "—"
+  }
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  })
+    .format(normalized)
+    .replace(/\./g, "")
+}
+
 export function formatDateTime(date: Date | string | null | undefined) {
   if (!date) {
     return "—"
@@ -136,6 +154,32 @@ export function calculateAge(
 type FormatBirthWithAgeOptions = {
   isAlive?: boolean
   deathDate?: Date | string | null
+  compact?: boolean
+}
+
+export function getDisplayAge(
+  birthDate: Date | string | null | undefined,
+  options?: Pick<FormatBirthWithAgeOptions, "deathDate" | "isAlive">,
+) {
+  const birth = toBirthDate(birthDate)
+
+  if (!birth) {
+    return null
+  }
+
+  const isAlive = options?.isAlive ?? true
+  const ageReference =
+    !isAlive && options?.deathDate
+      ? options.deathDate
+      : isAlive
+        ? undefined
+        : null
+
+  if (ageReference === null) {
+    return null
+  }
+
+  return calculateAge(birth, ageReference)
 }
 
 export function formatBirthWithAge(
@@ -148,20 +192,12 @@ export function formatBirthWithAge(
     return "—"
   }
 
-  const formatted = formatDate(birth)
-  const isAlive = options?.isAlive ?? true
-  const ageReference =
-    !isAlive && options?.deathDate
-      ? options.deathDate
-      : isAlive
-        ? undefined
-        : null
-  const age =
-    ageReference === null ? null : calculateAge(birth, ageReference)
+  const formatted = options?.compact ? formatDateCompact(birth) : formatDate(birth)
+  const age = getDisplayAge(birthDate, options)
 
   if (age === null) {
     return formatted
   }
 
-  return `${formatted} (${age} th)`
+  return `${formatted} (${age} thn)`
 }
