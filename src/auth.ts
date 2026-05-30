@@ -2,6 +2,7 @@ import { headers } from "next/headers"
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 
+import { authConfig } from "@/auth.config"
 import {
   checkLoginRateLimit,
   clearLoginRateLimit,
@@ -11,14 +12,7 @@ import {
 import { verifyPersonIdentity } from "@/lib/verify-person"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
-  trustHost: true,
-  session: {
-    strategy: "jwt",
-  },
-  pages: {
-    signIn: "/login",
-  },
+  ...authConfig,
   providers: [
     Credentials({
       credentials: {
@@ -66,24 +60,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.sub ?? ""
-        session.user.personId = (token.personId as string | undefined) ?? token.sub ?? ""
-        session.user.name = token.name
-      }
-
-      return session
-    },
-    async jwt({ token, user }) {
-      if (user) {
-        token.sub = user.id
-        token.personId = user.personId
-        token.name = user.name
-      }
-
-      return token
-    },
-  },
 })
