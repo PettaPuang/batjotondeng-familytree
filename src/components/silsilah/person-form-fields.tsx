@@ -13,7 +13,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { DatePickerField } from "@/components/silsilah/date-picker-field"
 import { FormSelectField } from "@/components/silsilah/form-select-field"
 import { PersonPhotoField } from "@/components/silsilah/person-photo-field"
-import { deceasedCheckboxLabel } from "@/lib/silsilah/person-display"
+import { genderLabel } from "@/lib/silsilah/format"
+import { deceasedCheckboxLabel } from "@/lib/silsilah/format"
 
 const detailInputClassName =
   "bg-input/50 h-8 w-full rounded-2xl border border-transparent px-2.5 text-sm md:text-sm"
@@ -138,8 +139,8 @@ export function PersonFormFields({
           name="gender"
           onValueChange={(value) => setGender(value as Gender)}
           options={[
-            { value: "MALE", label: "Laki-laki" },
-            { value: "FEMALE", label: "Perempuan" },
+            { value: "MALE", label: genderLabel("MALE") },
+            { value: "FEMALE", label: genderLabel("FEMALE") },
           ]}
           placeholder="Pilih jenis kelamin"
           required

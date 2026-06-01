@@ -4,9 +4,10 @@ import { useRef, useState } from "react"
 import type { Gender } from "@prisma/client"
 import { ImagePlusIcon, Loader2Icon, XIcon } from "lucide-react"
 
+import { uploadPersonPhoto } from "@/lib/actions/silsilah.actions"
 import { PersonAvatar } from "@/components/silsilah/person-avatar"
 import { Button } from "@/components/ui/button"
-import { toast } from "@/lib/toast"
+import { toast } from "sonner"
 import { toastMessages } from "@/lib/toast-messages"
 import { cn } from "@/lib/utils"
 
@@ -46,18 +47,13 @@ export function PersonPhotoField({
       const body = new FormData()
       body.set("file", file)
 
-      const response = await fetch("/api/silsilah/person/photo", {
-        method: "POST",
-        body,
-      })
+      const result = await uploadPersonPhoto(body)
 
-      const payload = (await response.json()) as { url?: string; error?: string }
-
-      if (!response.ok || !payload.url) {
-        throw new Error(payload.error ?? toastMessages.photoUploadFailed)
+      if (!result.success || !result.data?.url) {
+        throw new Error(result.message)
       }
 
-      setPhotoUrl(payload.url)
+      setPhotoUrl(result.data.url)
       toast.success(toastMessages.photoUploaded)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : toastMessages.photoUploadFailed)

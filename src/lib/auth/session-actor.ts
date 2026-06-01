@@ -1,6 +1,6 @@
 import type { Session } from "next-auth"
 
-import { requireSession } from "@/lib/auth/require-session"
+import { auth } from "@/auth"
 
 export type SessionActor = {
   personId: string
@@ -21,6 +21,11 @@ export function sessionToActor(session: Session): SessionActor {
 }
 
 export async function requireActor(): Promise<SessionActor> {
-  const session = await requireSession()
+  const session = await auth()
+
+  if (!session?.user?.personId) {
+    throw new Error("UNAUTHORIZED")
+  }
+
   return sessionToActor(session)
 }

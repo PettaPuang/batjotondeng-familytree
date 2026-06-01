@@ -1,5 +1,6 @@
+import { normalizeName, namesMatch } from "@/lib/silsilah/format"
+import { parseDateInput } from "@/lib/silsilah/format"
 import { prisma } from "@/lib/prisma"
-import { normalizeName, namesMatch } from "@/lib/normalize-name"
 
 export type VerifyPersonInput = {
   name: string
@@ -10,16 +11,16 @@ export type VerifyPersonInput = {
 export { normalizeName, namesMatch }
 
 export function matchesBirthDate(stored: Date, input: string) {
-  const [year, month, day] = input.split("-").map(Number)
+  const parsed = parseDateInput(input)
 
-  if (!year || !month || !day) {
+  if (!parsed) {
     return false
   }
 
   return (
-    stored.getUTCFullYear() === year &&
-    stored.getUTCMonth() + 1 === month &&
-    stored.getUTCDate() === day
+    stored.getUTCFullYear() === parsed.getUTCFullYear() &&
+    stored.getUTCMonth() === parsed.getUTCMonth() &&
+    stored.getUTCDate() === parsed.getUTCDate()
   )
 }
 
@@ -111,16 +112,6 @@ function parentInMarriageMatches(
   )
 }
 
-function parseBirthDateInput(input: string) {
-  const [year, month, day] = input.split("-").map(Number)
-
-  if (!year || !month || !day) {
-    return null
-  }
-
-  return new Date(Date.UTC(year, month - 1, day))
-}
-
 async function loadNameCandidates(name: string, birthDate?: Date) {
   const parts = nameParts(normalizeName(name))
 
@@ -192,8 +183,63 @@ export async function checkParentExists(
   )
 }
 
+// --- Login rate limiting ---
+
+const WINDOW_MS = 15 * 60 * 1000
+const MAX_ATTEMPTS = 10
+
+type AttemptBucket = {
+  count: number
+  resetAt: number
+}
+
+const attemptsByKey = new Map<string, AttemptBucket>()
+
+function pruneExpired(now: number) {
+  for (const [key, bucket] of attemptsByKey) {
+    if (bucket.resetAt <= now) {
+      attemptsByKey.delete(key)
+    }
+  }
+}
+
+export function checkLoginRateLimit(key: string) {
+  const now = Date.now()
+  pruneExpired(now)
+  const bucket = attemptsByKey.get(key)
+  if (!bucket || bucket.resetAt <= now) {
+    return { allowed: true as const }
+  }
+  if (bucket.count >= MAX_ATTEMPTS) {
+    const retryAfterSec = Math.ceil((bucket.resetAt - now) / 1000)
+    return { allowed: false as const, retryAfterSec }
+  }
+  return { allowed: true as const }
+}
+
+export function recordLoginFailure(key: string) {
+  const now = Date.now()
+  pruneExpired(now)
+  const bucket = attemptsByKey.get(key)
+  if (!bucket || bucket.resetAt <= now) {
+    attemptsByKey.set(key, { count: 1, resetAt: now + WINDOW_MS })
+    return
+  }
+  bucket.count += 1
+}
+
+export function clearLoginRateLimit(key: string) {
+  attemptsByKey.delete(key)
+}
+
+export function loginRateLimitKey(ip: string, name: string, birthDate: string) {
+  return `${ip}:${name.trim().toLowerCase()}:${birthDate.trim()}`
+}
+
+// --- Identity verification ---
+
 export async function verifyPersonIdentity(input: VerifyPersonInput) {
-  const birthDate = parseBirthDateInput(input.birthDate.trim())
+  const birthDate = parseDateInput(input.birthDate.trim())
   const trimmedParentName = normalizeName(input.parentName)
 
   if (!trimmedParentName || !birthDate) {

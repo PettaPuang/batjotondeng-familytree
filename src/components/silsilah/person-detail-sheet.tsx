@@ -1,13 +1,12 @@
 "use client"
 
 import { useCallback, useState } from "react"
+import { useRouter } from "next/navigation"
+import type { PersonAuditLog } from "@prisma/client"
 
 import { PersonFormSheet } from "@/components/silsilah/person-form-sheet"
 import { PersonAuditLogSheet } from "@/components/silsilah/person-audit-log-sheet"
-import {
-  PersonDetailBody,
-  type PersonDetailPayload,
-} from "@/components/silsilah/person-detail-body"
+import { PersonDetailBody } from "@/components/silsilah/person-detail-body"
 import { DeletePersonButton } from "@/components/silsilah/delete-person-button"
 import { PersonAvatar } from "@/components/silsilah/person-avatar"
 import { Button } from "@/components/ui/button"
@@ -21,12 +20,22 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import {
+  getPersonDetailTitle,
+  type PersonDetailPayload,
+} from "@/lib/silsilah/types"
 
 type PersonDetailSheetProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   personId: string | null
+  personDetail: PersonDetailPayload | null
+  personDetailError?: string | null
   canManage?: boolean
+  auditOpen: boolean
+  auditLogs: PersonAuditLog[] | null
+  auditError?: string | null
+  onAuditOpenChange: (open: boolean) => void
   onPersonUpdated?: () => void
 }
 
@@ -34,55 +43,46 @@ export function PersonDetailSheet({
   open,
   onOpenChange,
   personId,
+  personDetail,
+  personDetailError,
   canManage = false,
+  auditOpen,
+  auditLogs,
+  auditError,
+  onAuditOpenChange,
   onPersonUpdated,
 }: PersonDetailSheetProps) {
-  const [auditOpen, setAuditOpen] = useState(false)
+  const router = useRouter()
   const [editOpen, setEditOpen] = useState(false)
-  const [detailPayload, setDetailPayload] = useState<PersonDetailPayload | null>(
-    null,
-  )
-  const [refreshKey, setRefreshKey] = useState(0)
-  const [sheetTitle, setSheetTitle] = useState("Detail Anggota")
 
-  const handlePersonLoaded = useCallback((payload: PersonDetailPayload) => {
-    setDetailPayload(payload)
-  }, [])
+  const sheetTitle = personDetail
+    ? getPersonDetailTitle(personDetail)
+    : "Detail Anggota"
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    onOpenChange(nextOpen)
-
-    if (!nextOpen) {
-      setAuditOpen(false)
-      setEditOpen(false)
-      setDetailPayload(null)
-    }
-  }
+  const headerPerson = personDetail?.person ?? null
 
   const openEdit = useCallback(() => {
-    if (!detailPayload || detailPayload.access !== "full") {
+    if (!personDetail || personDetail.access !== "full") {
       return
     }
 
     setEditOpen(true)
-  }, [detailPayload])
+  }, [personDetail])
 
   const handleEditSuccess = useCallback(() => {
     onPersonUpdated?.()
-    setRefreshKey((current) => current + 1)
-    setDetailPayload(null)
-  }, [onPersonUpdated])
+    setEditOpen(false)
+    router.refresh()
+  }, [onPersonUpdated, router])
 
   const handleDeleted = useCallback(() => {
     onPersonUpdated?.()
     onOpenChange(false)
   }, [onOpenChange, onPersonUpdated])
 
-  const headerPerson = detailPayload?.person ?? null
-
   return (
     <>
-      <Sheet onOpenChange={handleOpenChange} open={open}>
+      <Sheet onOpenChange={onOpenChange} open={open}>
         <SheetContent side="right">
           <SheetHeader className="flex flex-row items-start gap-4 pr-14">
             {headerPerson ? (
@@ -111,20 +111,18 @@ export function PersonDetailSheet({
           <SheetBody>
             {open && personId ? (
               <PersonDetailBody
-                key={`${personId}-${refreshKey}`}
-                onLoaded={handlePersonLoaded}
-                onTitleChange={setSheetTitle}
-                personId={personId}
+                error={personDetailError}
+                payload={personDetail}
               />
             ) : null}
           </SheetBody>
 
           <SheetFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-            {canManage && detailPayload?.access === "full" ? (
+            {canManage && personDetail?.access === "full" ? (
               <Button
                 className="w-full sm:w-auto"
                 disabled={!personId}
-                onClick={() => setAuditOpen(true)}
+                onClick={() => onAuditOpenChange(true)}
                 size="sm"
                 type="button"
                 variant="outline"
@@ -133,13 +131,13 @@ export function PersonDetailSheet({
               </Button>
             ) : null}
             <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-2">
-              {canManage && personId && detailPayload?.access === "full" ? (
+              {canManage && personId && personDetail?.access === "full" ? (
                 <>
                   <DeletePersonButton
                     className="w-full sm:w-auto"
                     onDeleted={handleDeleted}
                     personId={personId}
-                    personName={detailPayload.person.fullName}
+                    personName={personDetail.person.fullName}
                   />
                   <Button className="w-full sm:w-auto" onClick={openEdit} size="sm" type="button">
                     Edit Data
@@ -157,19 +155,20 @@ export function PersonDetailSheet({
       </Sheet>
 
       <PersonAuditLogSheet
-        onOpenChange={setAuditOpen}
+        auditError={auditError}
+        auditLogs={auditLogs}
+        onOpenChange={onAuditOpenChange}
         open={auditOpen}
-        personId={personId}
         personName={sheetTitle}
       />
 
-      {detailPayload?.access === "full" ? (
+      {personDetail?.access === "full" ? (
         <PersonFormSheet
           mode="edit"
           onOpenChange={setEditOpen}
           onSuccess={handleEditSuccess}
           open={editOpen}
-          person={detailPayload.person}
+          person={personDetail.person}
         />
       ) : null}
     </>

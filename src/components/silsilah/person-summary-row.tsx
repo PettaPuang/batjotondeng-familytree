@@ -1,13 +1,17 @@
 import type { Gender } from "@prisma/client"
 
 import { PersonAvatar } from "@/components/silsilah/person-avatar"
-import { formatPersonTreeName } from "@/lib/silsilah/person-display"
+import {
+  formatPersonCardSubtitle,
+  formatPersonTreeName,
+} from "@/lib/silsilah/format"
 import { cn } from "@/lib/utils"
 
 type PersonSummaryRowProps = {
   name: string
   gender: Gender
   isAlive: boolean
+  nickname?: string | null
   age?: number | null
   photoUrl?: string | null
   avatarSize?: "sm" | "md" | "lg"
@@ -20,6 +24,7 @@ export function PersonSummaryRow({
   name,
   gender,
   isAlive,
+  nickname,
   age,
   photoUrl,
   avatarSize = "md",
@@ -30,8 +35,7 @@ export function PersonSummaryRow({
   const isSidebar = variant === "sidebar"
   const resolvedAvatarSize =
     avatarSize !== "md" ? avatarSize : isSidebar ? "sm" : "md"
-  const ageLabel =
-    age !== null && age !== undefined ? `${age} thn` : null
+  const subtitle = formatPersonCardSubtitle(nickname, age)
 
   return (
     <div
@@ -59,14 +63,15 @@ export function PersonSummaryRow({
         >
           {displayName}
         </p>
-        {ageLabel ? (
+        {subtitle ? (
           <p
             className={cn(
               "text-muted-foreground truncate leading-tight tabular-nums",
               isSidebar ? "text-[11px] lg:text-xs" : "text-[11px] lg:text-xs",
             )}
+            title={subtitle}
           >
-            {ageLabel}
+            {subtitle}
           </p>
         ) : null}
       </div>

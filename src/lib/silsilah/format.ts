@@ -1,3 +1,5 @@
+import type { Gender } from "@prisma/client"
+
 export function formatDate(date: Date | string | null | undefined) {
   if (!date) {
     return "—"
@@ -112,6 +114,40 @@ export function genderLabel(gender: "MALE" | "FEMALE") {
   return gender === "MALE" ? "Laki-laki" : "Perempuan"
 }
 
+export function formatAge(age: number | null | undefined): string | null {
+  if (age === null || age === undefined) {
+    return null
+  }
+
+  return `${age} thn`
+}
+
+export function formatAgeLong(age: number | null | undefined): string | null {
+  if (age === null || age === undefined) {
+    return null
+  }
+
+  return `${age} Tahun`
+}
+
+export function formatPersonCardSubtitle(
+  nickname: string | null | undefined,
+  age: number | null | undefined,
+): string | null {
+  const trimmedNickname = nickname?.trim()
+  const ageLabel = formatAgeLong(age)
+
+  if (trimmedNickname && ageLabel) {
+    return `${trimmedNickname}, ${ageLabel}`
+  }
+
+  if (trimmedNickname) {
+    return trimmedNickname
+  }
+
+  return ageLabel
+}
+
 function toBirthDate(date: Date | string | null | undefined) {
   if (!date) {
     return null
@@ -200,4 +236,156 @@ export function formatBirthWithAge(
   }
 
   return `${formatted} (${age} thn)`
+}
+
+export function getPersonInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+
+  if (parts.length === 0) {
+    return "?"
+  }
+
+  if (parts.length === 1) {
+    return parts[0]!.slice(0, 2).toUpperCase()
+  }
+
+  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase()
+}
+
+export function genderAvatarClass(gender: Gender) {
+  return gender === "MALE"
+    ? "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200"
+    : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200"
+}
+
+/** Latar kartu anggota — nuansa sama dengan avatar, tetap terbaca saat ada foto */
+export function genderCardClass(gender: Gender) {
+  return gender === "MALE"
+    ? "border-sky-200/80 bg-sky-50 dark:border-sky-800/70 dark:bg-sky-950/50"
+    : "border-rose-200/80 bg-rose-50 dark:border-rose-800/70 dark:bg-rose-950/50"
+}
+
+export function deceasedNamePrefix(gender: Gender, isAlive: boolean) {
+  if (isAlive) {
+    return ""
+  }
+
+  return gender === "MALE" ? "(alm) " : "(almh) "
+}
+
+export function deceasedCheckboxLabel(gender: Gender | "") {
+  if (gender === "MALE") {
+    return "Almarhum"
+  }
+
+  if (gender === "FEMALE") {
+    return "Almarhumah"
+  }
+
+  return "Almarhum/Almarhumah"
+}
+
+export function formatPersonTreeName(
+  name: string,
+  gender: Gender,
+  isAlive: boolean,
+) {
+  return `${deceasedNamePrefix(gender, isAlive)}${name}`
+}
+
+export function buildSilsilahUrl(
+  pathname: string,
+  options?: {
+    personId?: string | null
+    audit?: boolean
+    viewAll?: boolean
+  },
+) {
+  const params = new URLSearchParams()
+
+  if (options?.viewAll) {
+    params.set("view", "all")
+  }
+
+  if (options?.personId) {
+    params.set("person", options.personId)
+  }
+
+  if (options?.audit && options.personId) {
+    params.set("audit", "1")
+  }
+
+  const query = params.toString()
+  return query ? `${pathname}?${query}` : pathname
+}
+
+type SiblingSortable = {
+  birthOrder?: number | null
+  birthDate?: Date | null
+  fullName: string
+}
+
+function siblingSortKey(person: SiblingSortable): number | undefined {
+  if (person.birthOrder !== undefined && person.birthOrder !== null) {
+    return person.birthOrder
+  }
+
+  if (person.birthDate) {
+    return person.birthDate.getTime()
+  }
+
+  return undefined
+}
+
+/** Urutan saudara/anak kiri→kanan: lebih awal lahir dahulu, tanpa data di akhir, lalu nama. */
+export function compareSiblingBirthOrder<T extends SiblingSortable>(
+  a: T,
+  b: T,
+): number {
+  const aKey = siblingSortKey(a)
+  const bKey = siblingSortKey(b)
+
+  if (aKey !== undefined && bKey !== undefined) {
+    if (aKey !== bKey) {
+      return aKey - bKey
+    }
+  } else if (aKey !== undefined) {
+    return -1
+  } else if (bKey !== undefined) {
+    return 1
+  }
+
+  return a.fullName.localeCompare(b.fullName, "id", { sensitivity: "base" })
+}
+
+export function sortBySiblingBirthOrder<T extends SiblingSortable>(
+  people: T[],
+): T[] {
+  return [...people].sort(compareSiblingBirthOrder)
+}
+
+// --- Name normalization ---
+
+const UNICODE_SPACES = /[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000\uFEFF]/g
+
+function cleanToken(token: string) {
+  return token.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")
+}
+
+/** Normalisasi nama: spasi berlebih, huruf kapital, tanda baca di ujung kata. */
+export function normalizeName(name: string) {
+  return name
+    .normalize("NFKC")
+    .replace(UNICODE_SPACES, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .map(cleanToken)
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase("id")
+}
+
+export function namesMatch(a: string, b: string) {
+  return normalizeName(a) === normalizeName(b)
 }

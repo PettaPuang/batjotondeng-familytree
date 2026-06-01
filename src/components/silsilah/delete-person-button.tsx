@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { Loader2Icon } from "lucide-react"
 import { toast } from "sonner"
 
+import { deletePerson } from "@/lib/actions/silsilah.actions"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +23,6 @@ import { toastMessages } from "@/lib/toast-messages"
 type DeletePersonButtonProps = {
   personId: string
   personName: string
-  /** Dipanggil setelah hapus via API (mis. sheet detail) */
   onDeleted?: () => void
   className?: string
 }
@@ -38,26 +38,16 @@ export function DeletePersonButton({
 
   const handleConfirm = () => {
     startTransition(async () => {
-      try {
-        const response = await fetch(`/api/silsilah/person/${personId}`, {
-          method: "DELETE",
-        })
+      const result = await deletePerson(personId)
 
-        if (!response.ok) {
-          const body = (await response.json().catch(() => null)) as {
-            error?: string
-          } | null
-          throw new Error(body?.error ?? toastMessages.defaultError)
-        }
-
-        toast.success(toastMessages.personDeleted)
-        setOpen(false)
-        onDeleted?.()
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : toastMessages.defaultError,
-        )
+      if (!result.success) {
+        toast.error(result.message)
+        return
       }
+
+      toast.success(result.message || toastMessages.personDeleted)
+      setOpen(false)
+      onDeleted?.()
     })
   }
 

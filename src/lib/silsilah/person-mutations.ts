@@ -1,19 +1,89 @@
-import { deleteStoredPersonPhoto } from "@/lib/blob/person-photo"
+import "server-only"
+
+import { Prisma, type Gender } from "@prisma/client"
+
+import { deleteStoredPersonPhoto, isVercelBlobUrl } from "@/lib/blob/person-photo"
 import {
   applyCreatePersonRelation,
-  assertCanManageMarriage,
-  assertCanManagePerson,
+  assertFamilyScope,
   parseCreatePersonRelation,
   type CreatePersonRelation,
 } from "@/lib/auth/person-scope"
 import { parseDateInput } from "@/lib/silsilah/format"
-import { logPersonCreated, logPersonDeleted, logPersonUpdated } from "@/lib/silsilah/person-audit"
-import { readPersonFormData } from "@/lib/silsilah/person-form-server"
+import { logPersonCreated, logPersonDeleted, logPersonUpdated } from "@/lib/silsilah/person-audit.server"
 import { prisma } from "@/lib/prisma"
+
+export function prismaErrorMessage(error: unknown): string | null {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
+    return null
+  }
+
+  switch (error.code) {
+    case "P2002":
+      return "Data ini sudah ada (duplikat)."
+    case "P2003":
+      return "Data tidak dapat diubah/dihapus karena masih terhubung dengan data lain."
+    default:
+      return null
+  }
+}
+
+export async function upsertPersonParentLink(
+  childId: string,
+  marriageId: string,
+  db: Prisma.TransactionClient | typeof prisma = prisma,
+) {
+  return db.personParent.upsert({
+    where: {
+      childId_marriageId: {
+        childId,
+        marriageId,
+      },
+    },
+    update: {},
+    create: {
+      childId,
+      marriageId,
+    },
+  })
+}
 
 export type MutationActor = {
   personId: string
   name?: string | null
+}
+
+function readPersonFormData(formData: FormData) {
+  const fullName = String(formData.get("fullName") ?? "").trim()
+  const nickname = String(formData.get("nickname") ?? "").trim()
+  const gender = String(formData.get("gender") ?? "") as Gender
+  const birthPlace = String(formData.get("birthPlace") ?? "").trim()
+  const phone = String(formData.get("phone") ?? "").trim()
+  const address = String(formData.get("address") ?? "").trim()
+  const notes = String(formData.get("notes") ?? "").trim()
+  const isDeceased = formData.get("isDeceased") === "on"
+  const isAlive = !isDeceased
+  const birthDate = parseDateInput(String(formData.get("birthDate") ?? ""))
+  const deathDate = parseDateInput(String(formData.get("deathDate") ?? ""))
+  const photoUrl = String(formData.get("photoUrl") ?? "").trim()
+
+  if (!fullName || (gender !== "MALE" && gender !== "FEMALE")) {
+    throw new Error("Nama lengkap dan jenis kelamin wajib diisi.")
+  }
+
+  return {
+    fullName,
+    nickname: nickname || null,
+    gender,
+    birthDate,
+    birthPlace: birthPlace || null,
+    phone: phone || null,
+    address: address || null,
+    notes: notes || null,
+    photoUrl: photoUrl && isVercelBlobUrl(photoUrl) ? photoUrl : null,
+    isAlive,
+    deathDate: isAlive ? null : deathDate,
+  }
 }
 
 async function cleanupReplacedPersonPhoto(
@@ -56,7 +126,7 @@ export async function updatePersonFromForm(
   formData: FormData,
   options?: { includeMarriageDate?: boolean },
 ) {
-  await assertCanManagePerson(actor.personId, personId)
+  await assertFamilyScope(actor.personId, personId)
 
   const before = await prisma.person.findUnique({ where: { id: personId } })
 
@@ -71,7 +141,14 @@ export async function updatePersonFromForm(
     : ""
 
   if (marriageId) {
-    await assertCanManageMarriage(actor.personId, marriageId)
+    const marriage = await prisma.marriage.findUnique({
+      where: { id: marriageId },
+      select: { husbandId: true, wifeId: true },
+    })
+    if (marriage) {
+      await assertFamilyScope(actor.personId, marriage.husbandId)
+      await assertFamilyScope(actor.personId, marriage.wifeId)
+    }
   }
 
   const after = await prisma.$transaction(async (tx) => {
@@ -108,7 +185,7 @@ export async function updatePersonFromForm(
 }
 
 export async function deletePersonById(actor: MutationActor, personId: string) {
-  await assertCanManagePerson(actor.personId, personId)
+  await assertFamilyScope(actor.personId, personId)
 
   const person = await prisma.person.findUnique({ where: { id: personId } })
 
@@ -132,18 +209,6 @@ export async function deletePersonById(actor: MutationActor, personId: string) {
   await deleteStoredPersonPhoto(person.photoUrl)
 
   return person
-}
-
-export function jsonBodyToFormData(body: Record<string, unknown>) {
-  const formData = new FormData()
-
-  for (const [key, value] of Object.entries(body)) {
-    if (value !== null && value !== undefined) {
-      formData.set(key, String(value))
-    }
-  }
-
-  return formData
 }
 
 export { parseCreatePersonRelation }

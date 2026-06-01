@@ -6,8 +6,8 @@ import { SearchIcon } from "lucide-react"
 import { PersonSummaryRow } from "@/components/silsilah/person-summary-row"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { normalizeName } from "@/lib/normalize-name"
-import { genderCardClass } from "@/lib/silsilah/person-display"
+import { normalizeName } from "@/lib/silsilah/format"
+import { genderCardClass } from "@/lib/silsilah/format"
 import { cn } from "@/lib/utils"
 import type { TreeNodePerson } from "@/lib/silsilah/types"
 
@@ -103,6 +103,7 @@ export function PersonNameList({
                     gender={person.gender}
                     isAlive={person.isAlive}
                     name={person.fullName}
+                    nickname={person.nickname}
                     photoUrl={person.photoUrl}
                     variant="sidebar"
                   />

@@ -6,7 +6,7 @@ import { GenealogyTreeControls } from "@/components/silsilah/genealogy-tree-cont
 import { useGenealogyTreeViewport } from "@/components/silsilah/use-genealogy-tree-viewport"
 import { PersonSummaryRow } from "@/components/silsilah/person-summary-row"
 import { buildGenealogyLayout } from "@/lib/silsilah/genealogy-layout"
-import { genderCardClass } from "@/lib/silsilah/person-display"
+import { genderCardClass } from "@/lib/silsilah/format"
 import type { TreePerson } from "@/lib/silsilah/types"
 import { cn } from "@/lib/utils"
 
@@ -48,7 +48,7 @@ export function GenealogyTree({
   } = useGenealogyTreeViewport({
     bounds: layout?.bounds ?? null,
     cards: layout?.cards,
-    focusPersonId: focusPersonId ?? selfPersonId ?? null,
+    focusPersonId: focusPersonId ?? null,
     zoomEnabled,
   })
 
@@ -156,6 +156,7 @@ export function GenealogyTree({
                     gender={card.person.gender}
                     isAlive={card.person.isAlive}
                     name={card.person.fullName}
+                    nickname={card.person.nickname}
                     photoUrl={card.person.photoUrl}
                   />
                 </button>

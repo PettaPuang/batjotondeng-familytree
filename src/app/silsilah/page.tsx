@@ -1,21 +1,27 @@
 import type { Metadata } from "next"
 
 import { auth } from "@/auth"
-import { SilsilahPageContent } from "@/components/silsilah/silsilah-page-content"
+import { SilsilahPageClient } from "@/components/silsilah/silsilah-page-client"
 import { getCreatePersonRelationOptions } from "@/lib/auth/create-person-options"
 import { getManageablePersonIds } from "@/lib/auth/person-scope"
-import { getSilsilahTreePayload } from "@/lib/silsilah/queries"
+import { getSilsilahTreePayload } from "@/lib/services/silsilah.service"
 
 export const metadata: Metadata = {
   title: "Silsilah",
 }
 
-export default async function SilsilahPage() {
+type SilsilahPageProps = {
+  searchParams: Promise<{ person?: string; audit?: string; view?: string }>
+}
+
+export default async function SilsilahPage({ searchParams }: SilsilahPageProps) {
   const session = await auth()
   const actorPersonId = session?.user?.personId
+  const { person: initialSelectedPersonId, audit, view } = await searchParams
+  const viewAll = view === "all"
+  const initialAuditOpen = audit === "1"
 
-  const [treePayload, createOptions, manageableIds] = await Promise.all([
-    getSilsilahTreePayload(),
+  const [createOptions, manageableIds] = await Promise.all([
     actorPersonId
       ? getCreatePersonRelationOptions(actorPersonId)
       : Promise.resolve({ marriages: [], parentMarriages: [] }),
@@ -24,13 +30,20 @@ export default async function SilsilahPage() {
       : Promise.resolve(new Set<string>()),
   ])
 
+  const treePayload = await getSilsilahTreePayload(
+    viewAll ? undefined : manageableIds.size > 0 ? manageableIds : undefined,
+  )
+
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden">
-      <SilsilahPageContent
+      <SilsilahPageClient
         createOptions={createOptions}
+        initialAuditOpen={initialAuditOpen}
+        initialSelectedPersonId={initialSelectedPersonId ?? null}
         manageablePersonIds={[...manageableIds]}
         subjectPersonId={actorPersonId}
         treePayload={treePayload}
+        viewAll={viewAll}
       />
     </section>
   )

@@ -1,14 +1,15 @@
 import { get } from "@vercel/blob"
 import { NextResponse } from "next/server"
 
-import { requireApiSession } from "@/lib/api/unauthorized"
+import { auth } from "@/auth"
 import { isVercelBlobUrl } from "@/lib/blob/person-photo"
 import { prisma } from "@/lib/prisma"
 
 export async function GET(request: Request) {
-  const { response } = await requireApiSession()
-  if (response) {
-    return response
+  const session = await auth()
+
+  if (!session?.user?.personId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const url = new URL(request.url).searchParams.get("url")

@@ -1,6 +1,5 @@
 import { auth } from "@/auth"
 import { SignOutButton } from "@/components/sign-out-button"
-import { SilsilahNavClient } from "@/components/silsilah/silsilah-nav-client"
 
 export default async function SilsilahLayout({
   children,
@@ -24,8 +23,6 @@ export default async function SilsilahLayout({
 
         <SignOutButton />
       </header>
-
-      <SilsilahNavClient />
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
     </div>

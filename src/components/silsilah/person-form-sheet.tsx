@@ -6,13 +6,14 @@ import { toast } from "sonner"
 import type { Person } from "@prisma/client"
 
 import { PersonMarriageDateField } from "@/components/silsilah/person-marriage-date-field"
+import { normalizePersonDates } from "@/lib/silsilah/types"
 import type { PersonWithRelations } from "@/lib/silsilah/types"
 
 import {
   createPersonSheetAction,
   updatePersonSheetAction,
-} from "@/app/silsilah/actions"
-import type { PersonSheetState } from "@/app/silsilah/actions"
+} from "@/lib/actions/silsilah.actions"
+import type { PersonSheetState } from "@/lib/actions/silsilah.actions"
 import { CreatePersonRelationFields } from "@/components/silsilah/create-person-relation-fields"
 import { PersonFormFields } from "@/components/silsilah/person-form-fields"
 import { Button } from "@/components/ui/button"
@@ -45,16 +46,6 @@ type PersonFormSheetProps = {
   person?: Person | PersonWithRelations | null
   onSuccess?: (personId: string) => void
   createOptions?: CreatePersonRelationOption
-}
-
-function normalizePersonDates(person: Person): Person {
-  return {
-    ...person,
-    birthDate: person.birthDate ? new Date(person.birthDate) : null,
-    deathDate: person.deathDate ? new Date(person.deathDate) : null,
-    createdAt: new Date(person.createdAt),
-    updatedAt: new Date(person.updatedAt),
-  }
 }
 
 function isPersonWithRelations(

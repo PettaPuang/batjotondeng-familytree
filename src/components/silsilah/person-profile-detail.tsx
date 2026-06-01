@@ -2,12 +2,14 @@ import type { ReactNode } from "react"
 import type { Person } from "@prisma/client"
 
 import {
+  formatAge,
   formatBirthWithAge,
   formatDate,
   formatOptionalText,
   genderLabel,
 } from "@/lib/silsilah/format"
-import { formatPersonTreeName } from "@/lib/silsilah/person-display"
+import { formatPersonTreeName } from "@/lib/silsilah/format"
+import type { PersonDetailLimited } from "@/lib/silsilah/types"
 import { cn } from "@/lib/utils"
 
 type PersonProfileDetailProps = {
@@ -56,27 +58,17 @@ export function PersonProfileDetail({ person }: PersonProfileDetailProps) {
   )
 }
 
-export type LimitedPerson = {
-  id: string
-  fullName: string
-  gender: Person["gender"]
-  isAlive: boolean
-  photoUrl: string | null
-  age: number | null
-  phone: string | null
-  address: string | null
-}
-
-export function PersonLimitedDetail({ person }: { person: LimitedPerson }) {
+export function PersonLimitedDetail({ person }: { person: PersonDetailLimited }) {
   return (
     <dl className="flex flex-col gap-4">
       <DetailRow
         label="Nama lengkap"
         value={formatPersonTreeName(person.fullName, person.gender, person.isAlive)}
       />
+      <DetailRow label="Nama panggilan" value={formatOptionalText(person.nickname)} />
       <DetailRow
         label="Umur"
-        value={person.age !== null ? `${person.age} thn` : "—"}
+        value={formatAge(person.age) ?? "—"}
       />
       <DetailRow label="Telepon" value={formatOptionalText(person.phone)} />
       <DetailRow label="Alamat" value={formatOptionalText(person.address)} />

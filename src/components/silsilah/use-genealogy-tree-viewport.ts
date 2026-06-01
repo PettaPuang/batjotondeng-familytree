@@ -18,7 +18,7 @@ import {
   panToTopCard,
   treeContentSize,
   TREE_ZOOM_STEP,
-} from "@/lib/silsilah/genealogy-tree-viewport"
+} from "@/lib/silsilah/genealogy-layout"
 import { useTreeFitScale } from "@/components/silsilah/use-tree-fit-scale"
 
 type UseGenealogyTreeViewportOptions = {
@@ -113,8 +113,6 @@ export function useGenealogyTreeViewport({
       return
     }
 
-    // Hanya fokus ulang saat fokus berpindah atau tampilan pertama kali siap.
-    // Saat user zoom/geser (scale berubah, fokus tetap), jangan reset pan.
     const focusChanged = prevFocusRef.current !== focusPersonId
 
     if (isViewReady && !focusChanged) {

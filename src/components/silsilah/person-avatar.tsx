@@ -2,7 +2,7 @@ import type { Gender } from "@prisma/client"
 import Image from "next/image"
 
 import { getPersonPhotoSrc } from "@/lib/blob/person-photo"
-import { genderAvatarClass, getPersonInitials } from "@/lib/silsilah/person-display"
+import { genderAvatarClass, getPersonInitials } from "@/lib/silsilah/format"
 import { cn } from "@/lib/utils"
 
 type PersonAvatarProps = {

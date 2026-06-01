@@ -96,7 +96,7 @@ export function getPersonPhotoSrc(photoUrl: string | null | undefined) {
   }
 
   if (isVercelBlobUrl(photoUrl)) {
-    return `/api/silsilah/person/photo/view?url=${encodeURIComponent(photoUrl)}`
+    return `/api/photo?url=${encodeURIComponent(photoUrl)}`
   }
 
   return photoUrl

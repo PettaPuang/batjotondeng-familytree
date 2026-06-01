@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 
 import { signIn } from "@/auth"
 import { toastMessages } from "@/lib/toast-messages"
-import { checkNameExists, checkParentExists } from "@/lib/verify-person"
+import { checkNameExists, checkParentExists } from "@/lib/auth/verify-person"
 
 export async function checkNameStepAction(name: string): Promise<boolean> {
   return checkNameExists(name)

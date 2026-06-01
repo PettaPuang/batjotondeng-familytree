@@ -7,7 +7,7 @@ import {
 } from "react"
 import { toast } from "sonner"
 
-import { isNextRedirectError } from "@/lib/is-next-redirect-error"
+import { isNextRedirectError } from "@/lib/utils"
 import { toastMessages } from "@/lib/toast-messages"
 
 type ActionToastFormProps = Omit<FormHTMLAttributes<HTMLFormElement>, "action"> & {

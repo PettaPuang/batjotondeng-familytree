@@ -4,7 +4,7 @@ import { useState, useTransition } from "react"
 import { Loader2Icon } from "lucide-react"
 import { toast } from "sonner"
 
-import { signOutAction } from "@/app/auth-actions"
+import { signOutAction } from "@/lib/actions/auth.actions"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,7 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { isNextRedirectError } from "@/lib/is-next-redirect-error"
+import { isNextRedirectError } from "@/lib/utils"
 import { toastMessages } from "@/lib/toast-messages"
 
 export function SignOutButton() {

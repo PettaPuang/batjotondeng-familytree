@@ -1,4 +1,4 @@
-import { sortBySiblingBirthOrder } from "@/lib/silsilah/sibling-order"
+import { sortBySiblingBirthOrder } from "@/lib/silsilah/format"
 import type { TreeNodePerson, TreePerson } from "@/lib/silsilah/types"
 
 export const GENEALOGY_CARD = {
@@ -8,7 +8,7 @@ export const GENEALOGY_CARD = {
 
 const ROW_GAP = 100
 const UNIT_GAP = 36
-const COUPLE_GAP = 20
+const COUPLE_STACK_GAP = 30
 const PAD = 48
 
 export type GenealogyLayoutCard = {
@@ -41,6 +41,13 @@ type LayoutUnit = {
   width: number
 }
 
+type LayoutSubtree = {
+  unit: LayoutUnit
+  anchorId: string
+  children: LayoutSubtree[]
+  width: number
+}
+
 function cx(card: { x: number; width: number }) {
   return card.x + card.width / 2
 }
@@ -65,13 +72,10 @@ function singlePersonUnit(person: TreePerson): LayoutUnit {
   }
 }
 
-function coupleUnit(husband: TreeNodePerson, wife: TreeNodePerson): LayoutUnit {
-  const ordered =
-    husband.gender === "MALE" ? [husband, wife] : [wife, husband]
-
+function coupleUnit(anchor: TreeNodePerson, spouse: TreeNodePerson): LayoutUnit {
   return {
-    members: ordered.map((person) => ({ person })),
-    width: GENEALOGY_CARD.width * 2 + COUPLE_GAP,
+    members: [{ person: anchor }, { person: spouse }],
+    width: GENEALOGY_CARD.width,
   }
 }
 
@@ -81,38 +85,41 @@ function placeUnit(
   y: number,
   cards: GenealogyLayoutCard[],
 ) {
-  let cursor = x
+  for (let index = 0; index < unit.members.length; index++) {
+    const member = unit.members[index]!
+    const memberY =
+      index === 0
+        ? y
+        : y + GENEALOGY_CARD.height + COUPLE_STACK_GAP
 
-  for (const member of unit.members) {
     cards.push({
       person: member.person,
       personId: member.person.id,
-      x: cursor,
-      y,
+      x,
+      y: memberY,
       width: GENEALOGY_CARD.width,
       height: GENEALOGY_CARD.height,
     })
-    cursor += GENEALOGY_CARD.width + COUPLE_GAP
   }
 }
 
-function rowContentWidth(units: LayoutUnit[]) {
-  return units.reduce(
-    (sum, unit, index) => sum + unit.width + (index > 0 ? UNIT_GAP : 0),
+function childBlockWidth(children: LayoutSubtree[]) {
+  return children.reduce(
+    (sum, child, index) => sum + child.width + (index > 0 ? UNIT_GAP : 0),
     0,
   )
 }
 
 function marriageEdge(
-  left: GenealogyLayoutCard,
-  right: GenealogyLayoutCard,
+  topCard: GenealogyLayoutCard,
+  bottomCard: GenealogyLayoutCard,
   id: string,
 ): GenealogyLayoutEdge {
-  const y = bottom(left) - left.height * 0.38
+  const x = cx(topCard)
   return {
     id,
     kind: "marriage",
-    d: `M ${left.x + left.width} ${y} L ${right.x} ${y}`,
+    d: `M ${x} ${bottom(topCard)} L ${x} ${top(bottomCard)}`,
   }
 }
 
@@ -125,8 +132,8 @@ function connectCouple(
     return
   }
 
-  const sorted = [...unitCards].sort((a, b) => a.x - b.x)
-  edges.push(marriageEdge(sorted[0], sorted[1], id))
+  const sorted = [...unitCards].sort((a, b) => a.y - b.y)
+  edges.push(marriageEdge(sorted[0]!, sorted[1]!, id))
 }
 
 function computePersonDepths(
@@ -206,16 +213,53 @@ function alignSpouseDepths(
   }
 }
 
-function getActiveSpouseInSet(
+function markCoupleDepths(
+  personsById: Map<string, TreePerson>,
+  depths: Map<string, number>,
+): Set<number> {
+  const hasCouple = new Set<number>()
+
+  for (const person of personsById.values()) {
+    for (const marriage of [...person.marriages, ...person.marriages2]) {
+      const depth = depths.get(marriage.husbandId) ?? 0
+      hasCouple.add(depth)
+    }
+  }
+
+  return hasCouple
+}
+
+function rowExtent(depth: number, hasCoupleAtDepth: Set<number>) {
+  return (
+    GENEALOGY_CARD.height +
+    (hasCoupleAtDepth.has(depth) ? COUPLE_STACK_GAP + GENEALOGY_CARD.height : 0)
+  )
+}
+
+function buildDepthToGenY(
+  maxDepth: number,
+  hasCoupleAtDepth: Set<number>,
+): Map<number, number> {
+  const depthToGenY = new Map<number, number>()
+  depthToGenY.set(0, PAD)
+
+  for (let depth = 1; depth <= maxDepth; depth++) {
+    const previousY = depthToGenY.get(depth - 1)!
+    depthToGenY.set(
+      depth,
+      previousY + rowExtent(depth - 1, hasCoupleAtDepth) + ROW_GAP,
+    )
+  }
+
+  return depthToGenY
+}
+
+function getActiveSpouse(
   person: TreePerson,
-  candidates: TreePerson[],
+  personsById: Map<string, TreePerson>,
   placed: Set<string>,
 ): TreePerson | null {
   for (const marriage of [...person.marriages, ...person.marriages2]) {
-    if (!marriage.isActive) {
-      continue
-    }
-
     const spouseId =
       marriage.husbandId === person.id ? marriage.wifeId : marriage.husbandId
 
@@ -223,8 +267,25 @@ function getActiveSpouseInSet(
       continue
     }
 
-    const spouse = candidates.find((candidate) => candidate.id === spouseId)
+    const spouse = personsById.get(spouseId)
+    if (!spouse) {
+      continue
+    }
 
+    if (marriage.isActive) {
+      return spouse
+    }
+  }
+
+  for (const marriage of [...person.marriages, ...person.marriages2]) {
+    const spouseId =
+      marriage.husbandId === person.id ? marriage.wifeId : marriage.husbandId
+
+    if (placed.has(spouseId)) {
+      continue
+    }
+
+    const spouse = personsById.get(spouseId)
     if (spouse) {
       return spouse
     }
@@ -233,32 +294,175 @@ function getActiveSpouseInSet(
   return null
 }
 
-function buildDepthRowUnits(people: TreePerson[]): LayoutUnit[] {
-  const sorted = sortBySiblingBirthOrder(people)
-  const placed = new Set<string>()
-  const units: LayoutUnit[] = []
+function buildUnitForPerson(
+  person: TreePerson,
+  spouse: TreePerson | null,
+): LayoutUnit {
+  if (spouse) {
+    const bothRootCouple =
+      person.parents.length === 0 && spouse.parents.length === 0
 
-  for (const person of sorted) {
+    if (
+      bothRootCouple &&
+      person.gender !== "MALE" &&
+      spouse.gender === "MALE"
+    ) {
+      return coupleUnit(spouse, person)
+    }
+
+    return coupleUnit(person, spouse)
+  }
+
+  return singlePersonUnit(person)
+}
+
+function getMarriageWithChildren(
+  person: TreePerson,
+  spouse: TreePerson | null,
+): TreePerson["marriages"][number] | null {
+  const marriages = [...person.marriages, ...person.marriages2]
+
+  if (spouse) {
+    const shared = marriages.find(
+      (marriage) =>
+        marriage.children.length > 0 &&
+        (marriage.husbandId === spouse.id || marriage.wifeId === spouse.id),
+    )
+
+    if (shared) {
+      return shared
+    }
+  }
+
+  return marriages.find((marriage) => marriage.children.length > 0) ?? null
+}
+
+function buildLayoutSubtree(
+  anchorId: string,
+  personsById: Map<string, TreePerson>,
+  placed: Set<string>,
+): LayoutSubtree {
+  const person = personsById.get(anchorId)
+
+  if (!person) {
+    throw new Error(`Person ${anchorId} not found for layout subtree.`)
+  }
+
+  const spouse = getActiveSpouse(person, personsById, placed)
+  placed.add(person.id)
+
+  if (spouse) {
+    placed.add(spouse.id)
+  }
+
+  const unit = buildUnitForPerson(person, spouse)
+  const marriage = getMarriageWithChildren(person, spouse)
+
+  const childPersons = marriage
+    ? sortBySiblingBirthOrder(
+        marriage.children
+          .map((link) => personsById.get(link.childId))
+          .filter((child): child is TreePerson => child !== undefined),
+      )
+    : []
+
+  const children = childPersons.map((child) =>
+    buildLayoutSubtree(child.id, personsById, placed),
+  )
+
+  return {
+    unit,
+    anchorId,
+    children,
+    width: 0,
+  }
+}
+
+function computeSubtreeWidth(node: LayoutSubtree): number {
+  if (node.children.length === 0) {
+    node.width = node.unit.width
+    return node.width
+  }
+
+  for (const child of node.children) {
+    computeSubtreeWidth(child)
+  }
+
+  const childrenWidth = childBlockWidth(node.children)
+  node.width = Math.max(node.unit.width, childrenWidth)
+  return node.width
+}
+
+function placeLayoutSubtree(
+  node: LayoutSubtree,
+  leftX: number,
+  depths: Map<string, number>,
+  depthToGenY: Map<number, number>,
+  cards: GenealogyLayoutCard[],
+) {
+  const depth = depths.get(node.anchorId) ?? 0
+  const y = depthToGenY.get(depth) ?? PAD
+
+  if (node.children.length === 0) {
+    const unitX = leftX + (node.width - node.unit.width) / 2
+    placeUnit(node.unit, unitX, y, cards)
+    return
+  }
+
+  const childrenWidth = childBlockWidth(node.children)
+  let childStartX = leftX
+
+  if (node.unit.width >= childrenWidth) {
+    childStartX = leftX + (node.width - childrenWidth) / 2
+  }
+
+  let cursor = childStartX
+
+  for (const child of node.children) {
+    placeLayoutSubtree(child, cursor, depths, depthToGenY, cards)
+    cursor += child.width + UNIT_GAP
+  }
+
+  let unitX: number
+
+  if (node.unit.width >= childrenWidth) {
+    unitX = leftX + (node.width - node.unit.width) / 2
+  } else {
+    const childCards = node.children.flatMap((child) =>
+      child.unit.members
+        .map((member) => cards.find((card) => card.personId === member.person.id))
+        .filter((card): card is GenealogyLayoutCard => card !== undefined),
+    )
+
+    const centers = childCards.map(cx)
+    const childrenCenter = (Math.min(...centers) + Math.max(...centers)) / 2
+    unitX = childrenCenter - node.unit.width / 2
+  }
+
+  placeUnit(node.unit, unitX, y, cards)
+}
+
+function buildForestRoots(
+  persons: TreePerson[],
+  depths: Map<string, number>,
+  personsById: Map<string, TreePerson>,
+): LayoutSubtree[] {
+  const placed = new Set<string>()
+  const roots: LayoutSubtree[] = []
+
+  const rootPeople = sortBySiblingBirthOrder(
+    persons.filter((person) => (depths.get(person.id) ?? 0) === 0),
+  )
+
+  for (const person of rootPeople) {
     if (placed.has(person.id)) {
       continue
     }
 
-    const activeSpouse = getActiveSpouseInSet(person, sorted, placed)
-
-    if (activeSpouse) {
-      const husband = person.gender === "MALE" ? person : activeSpouse
-      const wife = person.gender === "FEMALE" ? person : activeSpouse
-      units.push(coupleUnit(husband, wife))
-      placed.add(person.id)
-      placed.add(activeSpouse.id)
-      continue
-    }
-
-    units.push(singlePersonUnit(person))
-    placed.add(person.id)
+    roots.push(buildLayoutSubtree(person.id, personsById, placed))
   }
 
-  return units
+  return roots
 }
 
 function connectDescendants(
@@ -276,7 +480,7 @@ function connectDescendants(
   const busY = Math.max(fromY + 12, targetTop - 14)
 
   if (targets.length === 1) {
-    const target = targets[0]
+    const target = targets[0]!
     edges.push({
       id: `${prefix}-single`,
       kind: "parent-child",
@@ -314,62 +518,60 @@ export function buildGenealogyLayout(
   const depths = computePersonDepths(personsById)
   alignSpouseDepths(personsById, depths)
 
-  const depthLevels = [...new Set(depths.values())].sort((a, b) => a - b)
+  const forestRoots = buildForestRoots(persons, depths, personsById)
 
-  type DepthRow = {
-    depth: number
-    y: number
-    units: LayoutUnit[]
-  }
-
-  const layoutRows: DepthRow[] = []
-  let y = PAD
-
-  for (const depth of depthLevels) {
-    const peopleAtDepth = persons.filter((person) => depths.get(person.id) === depth)
-
-    layoutRows.push({
-      depth,
-      y,
-      units: buildDepthRowUnits(peopleAtDepth),
-    })
-    y += GENEALOGY_CARD.height + ROW_GAP
+  for (const root of forestRoots) {
+    computeSubtreeWidth(root)
   }
 
   const cards: GenealogyLayoutCard[] = []
   const edges: GenealogyLayoutEdge[] = []
 
-  const canvasWidth =
-    Math.max(
-      ...layoutRows.map((row) => rowContentWidth(row.units)),
-      320,
-    ) +
-    PAD * 2
+  const forestWidth = childBlockWidth(forestRoots)
+  const maxDepth = Math.max(...depths.values())
+  const hasCoupleAtDepth = markCoupleDepths(personsById, depths)
+  const depthToGenY = buildDepthToGenY(maxDepth, hasCoupleAtDepth)
+  const canvasWidth = Math.max(forestWidth + PAD * 2, 320)
   const canvasHeight =
-    (layoutRows.at(-1)?.y ?? PAD) + GENEALOGY_CARD.height + PAD
+    (depthToGenY.get(maxDepth) ?? PAD) +
+    rowExtent(maxDepth, hasCoupleAtDepth) +
+    PAD
 
-  for (const row of layoutRows) {
-    const rowWidth = rowContentWidth(row.units)
-    let cursor = PAD + (canvasWidth - PAD * 2 - rowWidth) / 2
+  let cursor = PAD + (canvasWidth - PAD * 2 - forestWidth) / 2
 
-    for (const unit of row.units) {
-      placeUnit(unit, cursor, row.y, cards)
-      cursor += unit.width + UNIT_GAP
-    }
+  for (const root of forestRoots) {
+    placeLayoutSubtree(root, cursor, depths, depthToGenY, cards)
+    cursor += root.width + UNIT_GAP
   }
 
   const cardById = new Map(cards.map((card) => [card.personId, card]))
+  const processedUnits = new Set<string>()
 
-  for (const row of layoutRows) {
-    for (const unit of row.units) {
-      const unitCards = unit.members
-        .map((member) => cardById.get(member.person.id))
-        .filter((card): card is GenealogyLayoutCard => card !== undefined)
+  for (const card of cards) {
+    const person = personsById.get(card.personId)
+    if (!person) {
+      continue
+    }
 
+    for (const marriage of [...person.marriages, ...person.marriages2]) {
+      const spouseId =
+        marriage.husbandId === person.id ? marriage.wifeId : marriage.husbandId
+      const unitKey = [person.id, spouseId].sort().join(":")
+
+      if (processedUnits.has(unitKey)) {
+        continue
+      }
+
+      const spouseCard = cardById.get(spouseId)
+      if (!spouseCard) {
+        continue
+      }
+
+      processedUnits.add(unitKey)
       connectCouple(
-        unitCards,
+        [card, spouseCard],
         edges,
-        `row-${row.depth}-marriage-${unitCards[0]?.personId ?? "unit"}`,
+        `unit-marriage-${unitKey}`,
       )
     }
   }
@@ -388,17 +590,22 @@ export function buildGenealogyLayout(
         .map((id) => cardById.get(id))
         .filter((card): card is GenealogyLayoutCard => card !== undefined)
 
-      const childCards = marriage.children
-        .map((link) => cardById.get(link.childId))
+      const childCards = sortBySiblingBirthOrder(
+        marriage.children
+          .map((link) => {
+            const childPerson = personsById.get(link.childId)
+            return childPerson ?? null
+          })
+          .filter((child): child is TreePerson => child !== null),
+      )
+        .map((child) => cardById.get(child.id))
         .filter((card): card is GenealogyLayoutCard => card !== undefined)
 
       if (parentCards.length === 0 || childCards.length === 0) {
         continue
       }
 
-      const parentCenters = parentCards.map(cx)
-      const fromX =
-        (Math.min(...parentCenters) + Math.max(...parentCenters)) / 2
+      const fromX = cx(parentCards[0]!)
       const fromY = Math.max(...parentCards.map(bottom))
 
       connectDescendants(
@@ -416,4 +623,78 @@ export function buildGenealogyLayout(
     edges,
     bounds: { width: canvasWidth, height: canvasHeight },
   }
+}
+
+export const TREE_ZOOM_MIN = 0.5
+export const TREE_ZOOM_MAX = 2.5
+export const TREE_ZOOM_STEP = 1.2
+
+export function treeContentSize(
+  bounds: { width: number; height: number },
+  scale: number,
+) {
+  return {
+    width: bounds.width * scale,
+    height: bounds.height * scale,
+  }
+}
+
+export function clampTreePan(
+  pan: { x: number; y: number },
+  viewport: { width: number; height: number },
+  content: { width: number; height: number },
+) {
+  let x = pan.x
+  let y = pan.y
+
+  if (content.width > viewport.width) {
+    x = Math.min(0, Math.max(viewport.width - content.width, x))
+  }
+
+  if (content.height > viewport.height) {
+    y = Math.min(0, Math.max(viewport.height - content.height, y))
+  }
+
+  return { x, y }
+}
+
+/** Jarak kartu fokus dari tepi atas viewport. */
+export const TREE_FOCUS_TOP_PADDING = 56
+
+export function panToTopCard(
+  card: GenealogyLayoutCard,
+  scale: number,
+  viewport: { width: number; height: number },
+  content: { width: number; height: number },
+) {
+  const centerX = (card.x + card.width / 2) * scale
+  const topY = card.y * scale
+
+  return clampTreePan(
+    {
+      x: viewport.width / 2 - centerX,
+      y: TREE_FOCUS_TOP_PADDING - topY,
+    },
+    viewport,
+    content,
+  )
+}
+
+export function panForZoomAtPoint(
+  pan: { x: number; y: number },
+  oldScale: number,
+  newScale: number,
+  anchor: { x: number; y: number },
+) {
+  const worldX = (anchor.x - pan.x) / oldScale
+  const worldY = (anchor.y - pan.y) / oldScale
+
+  return {
+    x: anchor.x - worldX * newScale,
+    y: anchor.y - worldY * newScale,
+  }
+}
+
+export function clampUserZoom(zoom: number) {
+  return Math.min(TREE_ZOOM_MAX, Math.max(TREE_ZOOM_MIN, zoom))
 }

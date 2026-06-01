@@ -1,9 +1,17 @@
 import type { Prisma } from "@prisma/client"
 import { cache } from "react"
 
-import { ManageForbiddenError } from "@/lib/auth/errors"
+export const MANAGE_FORBIDDEN_MESSAGE =
+  "Anda tidak memiliki izin untuk mengubah data anggota ini."
+
+export class ManageForbiddenError extends Error {
+  constructor(message = MANAGE_FORBIDDEN_MESSAGE) {
+    super(message)
+    this.name = "ManageForbiddenError"
+  }
+}
 import { parseDateInput } from "@/lib/silsilah/format"
-import { upsertPersonParentLink } from "@/lib/silsilah/person-parent"
+import { upsertPersonParentLink } from "@/lib/silsilah/person-mutations"
 import { prisma } from "@/lib/prisma"
 
 type ActorGraph = {
@@ -13,13 +21,27 @@ type ActorGraph = {
     id: string
     husbandId: string
     wifeId: string
-    children: { childId: string }[]
+    children: {
+      childId: string
+      child: {
+        id: string
+        marriages: { wifeId: string }[]
+        marriages2: { husbandId: string }[]
+      }
+    }[]
   }[]
   marriages2: {
     id: string
     husbandId: string
     wifeId: string
-    children: { childId: string }[]
+    children: {
+      childId: string
+      child: {
+        id: string
+        marriages: { wifeId: string }[]
+        marriages2: { husbandId: string }[]
+      }
+    }[]
   }[]
 }
 
@@ -40,7 +62,18 @@ const actorGraphInclude = {
       id: true,
       husbandId: true,
       wifeId: true,
-      children: { select: { childId: true } },
+      children: {
+        select: {
+          childId: true,
+          child: {
+            select: {
+              id: true,
+              marriages: { select: { wifeId: true } },
+              marriages2: { select: { husbandId: true } },
+            },
+          },
+        },
+      },
     },
   },
   marriages2: {
@@ -48,7 +81,18 @@ const actorGraphInclude = {
       id: true,
       husbandId: true,
       wifeId: true,
-      children: { select: { childId: true } },
+      children: {
+        select: {
+          childId: true,
+          child: {
+            select: {
+              id: true,
+              marriages: { select: { wifeId: true } },
+              marriages2: { select: { husbandId: true } },
+            },
+          },
+        },
+      },
     },
   },
 } as const
@@ -67,6 +111,13 @@ function collectManageableIds(graph: ActorGraph): Set<string> {
 
     for (const child of marriage.children) {
       ids.add(child.childId)
+
+      for (const m of child.child.marriages) {
+        ids.add(m.wifeId)
+      }
+      for (const m of child.child.marriages2) {
+        ids.add(m.husbandId)
+      }
     }
   }
 
@@ -134,7 +185,7 @@ function actorInMarriage(
   )
 }
 
-export async function canManagePerson(
+export async function isFamilyScope(
   actorPersonId: string,
   targetPersonId: string,
 ): Promise<boolean> {
@@ -146,40 +197,22 @@ export async function canManagePerson(
   return manageable.has(targetPersonId)
 }
 
-export async function assertCanManagePerson(
+export async function assertFamilyScope(
   actorPersonId: string,
   targetPersonId: string,
 ): Promise<void> {
-  const allowed = await canManagePerson(actorPersonId, targetPersonId)
+  const allowed = await isFamilyScope(actorPersonId, targetPersonId)
 
   if (!allowed) {
     throw new ManageForbiddenError()
   }
 }
 
-export async function assertCanManageMarriage(
-  actorPersonId: string,
-  marriageId: string,
-): Promise<void> {
-  const marriage = await getMarriageCouple(marriageId)
-
-  const [canManageHusband, canManageWife] = await Promise.all([
-    canManagePerson(actorPersonId, marriage.husbandId),
-    canManagePerson(actorPersonId, marriage.wifeId),
-  ])
-
-  if (!canManageHusband || !canManageWife) {
-    throw new ManageForbiddenError(
-      "Anda tidak memiliki izin untuk mengubah data pernikahan ini.",
-    )
-  }
-}
-
-export async function canLinkParentForChild(
+async function canLinkParentForChild(
   actorPersonId: string,
   childId: string,
 ): Promise<boolean> {
-  if (!(await canManagePerson(actorPersonId, childId))) {
+  if (!(await isFamilyScope(actorPersonId, childId))) {
     return false
   }
 
@@ -212,8 +245,8 @@ export async function assertCanLinkParent(
   }
 
   if (childId === actorPersonId) {
-    await assertCanManagePerson(actorPersonId, marriage.husbandId)
-    await assertCanManagePerson(actorPersonId, marriage.wifeId)
+    await assertFamilyScope(actorPersonId, marriage.husbandId)
+    await assertFamilyScope(actorPersonId, marriage.wifeId)
     return
   }
 
@@ -353,40 +386,5 @@ export async function applyCreatePersonRelation(
         isActive: true,
       },
     })
-  }
-}
-
-export async function assertCanCreateMarriage(
-  actorPersonId: string,
-  husbandId: string,
-  wifeId: string,
-): Promise<void> {
-  if (husbandId === wifeId) {
-    throw new Error("Suami dan istri tidak boleh orang yang sama.")
-  }
-
-  if (husbandId !== actorPersonId && wifeId !== actorPersonId) {
-    throw new ManageForbiddenError(
-      "Anda harus terlibat dalam pernikahan ini sebagai suami atau istri.",
-    )
-  }
-
-  const [husband, wife] = await Promise.all([
-    prisma.person.findUnique({
-      where: { id: husbandId },
-      select: { gender: true },
-    }),
-    prisma.person.findUnique({
-      where: { id: wifeId },
-      select: { gender: true },
-    }),
-  ])
-
-  if (!husband || !wife) {
-    throw new Error("Data suami atau istri tidak ditemukan.")
-  }
-
-  if (husband.gender !== "MALE" || wife.gender !== "FEMALE") {
-    throw new Error("Suami harus laki-laki dan istri harus perempuan.")
   }
 }

@@ -16,5 +16,8 @@ export default auth((req) => {
 })
 
 export const config = {
-  matcher: ["/silsilah/:path*", "/api/silsilah/:path*"],
+  matcher: [
+    "/silsilah/:path*",
+    "/api/silsilah/person/photo/view",
+  ],
 }

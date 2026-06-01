@@ -8,8 +8,8 @@ import {
   clearLoginRateLimit,
   loginRateLimitKey,
   recordLoginFailure,
-} from "@/lib/auth/login-rate-limit"
-import { verifyPersonIdentity } from "@/lib/verify-person"
+  verifyPersonIdentity,
+} from "@/lib/auth/verify-person"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,

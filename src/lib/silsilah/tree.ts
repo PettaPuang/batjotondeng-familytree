@@ -68,7 +68,6 @@ function buildMarriageRecord(
   }
 }
 
-/** Susun TreePerson[] dari payload datar (satu Person per id, tanpa duplikat JSON). */
 export function hydrateTreePersons(payload: SilsilahTreePayload): TreePerson[] {
   const personById = new Map(payload.persons.map((person) => [person.id, person]))
   const marriageById = new Map(

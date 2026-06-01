@@ -1,12 +1,9 @@
 import "server-only"
 
 import { getDisplayAge } from "@/lib/silsilah/format"
-import { prisma } from "@/lib/prisma"
+import type { SilsilahTreePayload } from "@/lib/silsilah/tree"
 import type { TreeNodePerson } from "@/lib/silsilah/types"
-import type { SilsilahTreePayload } from "@/lib/silsilah/tree-graph"
-
-export type { MarriageTreeRecord, ParentLinkRecord, SilsilahTreePayload } from "@/lib/silsilah/tree-graph"
-export { hydrateTreePersons } from "@/lib/silsilah/tree-graph"
+import { prisma } from "@/lib/prisma"
 
 function computeBirthOrder(
   persons: { id: string; birthDate: Date | null }[],
@@ -22,13 +19,19 @@ function computeBirthOrder(
   return map
 }
 
-export async function getSilsilahTreePayload(): Promise<SilsilahTreePayload> {
+export async function getSilsilahTreePayload(
+  filterIds?: Set<string>,
+): Promise<SilsilahTreePayload> {
+  const filterIdArray = filterIds ? [...filterIds] : undefined
+
   const [rawPersons, marriages, parentLinks] = await Promise.all([
     prisma.person.findMany({
+      where: filterIdArray ? { id: { in: filterIdArray } } : undefined,
       orderBy: { fullName: "asc" },
       select: {
         id: true,
         fullName: true,
+        nickname: true,
         gender: true,
         isAlive: true,
         photoUrl: true,
@@ -37,6 +40,9 @@ export async function getSilsilahTreePayload(): Promise<SilsilahTreePayload> {
       },
     }),
     prisma.marriage.findMany({
+      where: filterIdArray
+        ? { husbandId: { in: filterIdArray }, wifeId: { in: filterIdArray } }
+        : undefined,
       select: {
         id: true,
         husbandId: true,
@@ -46,15 +52,23 @@ export async function getSilsilahTreePayload(): Promise<SilsilahTreePayload> {
       },
     }),
     prisma.personParent.findMany({
+      where: filterIdArray ? { childId: { in: filterIdArray } } : undefined,
       select: { childId: true, marriageId: true },
     }),
   ])
 
+  const marriageIdSet = new Set(marriages.map((m) => m.id))
+  const filteredParentLinks = filterIdArray
+    ? parentLinks.filter((link) => marriageIdSet.has(link.marriageId))
+    : parentLinks
+
   const birthOrderById = computeBirthOrder(rawPersons)
+  const personIdSet = new Set(rawPersons.map((p) => p.id))
 
   const persons: TreeNodePerson[] = rawPersons.map((person) => ({
     id: person.id,
     fullName: person.fullName,
+    nickname: person.nickname,
     gender: person.gender,
     isAlive: person.isAlive,
     photoUrl: person.photoUrl,
@@ -72,8 +86,10 @@ export async function getSilsilahTreePayload(): Promise<SilsilahTreePayload> {
       husbandId: marriage.husbandId,
       wifeId: marriage.wifeId,
       isActive: marriage.isActive,
-      childIds: marriage.children.map((link) => link.childId),
+      childIds: marriage.children
+        .map((link) => link.childId)
+        .filter((id) => personIdSet.has(id)),
     })),
-    parentLinks,
+    parentLinks: filteredParentLinks,
   }
 }
