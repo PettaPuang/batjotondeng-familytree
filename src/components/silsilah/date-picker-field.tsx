@@ -11,6 +11,7 @@ type DatePickerFieldProps = {
   defaultValue?: Date | string | null
   placeholder?: string
   required?: boolean
+  className?: string
 }
 
 export function DatePickerField({
@@ -19,11 +20,13 @@ export function DatePickerField({
   defaultValue,
   placeholder,
   required,
+  className,
 }: DatePickerFieldProps) {
   const [value, setValue] = useState(toDateInputValue(defaultValue ?? null))
 
   return (
     <DatePicker
+      className={className}
       id={id}
       name={name}
       onChange={setValue}

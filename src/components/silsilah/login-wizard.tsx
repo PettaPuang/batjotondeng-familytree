@@ -211,7 +211,7 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
             </Field>
 
             <Button
-              className="w-full"
+              className="min-h-[44px] w-full"
               disabled={pending}
               onClick={goNext}
               size="sm"
@@ -243,7 +243,7 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
 
             <div className="flex flex-col gap-1.5">
               <Button
-                className="w-full"
+                className="min-h-[44px] w-full"
                 disabled={pending}
                 onClick={goNext}
                 size="sm"
@@ -258,7 +258,7 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
                   "Lanjut"
                 )}
               </Button>
-              <Button className="w-full" onClick={goBack} size="sm" type="button" variant="outline">
+              <Button className="min-h-[44px] w-full" onClick={goBack} size="sm" type="button" variant="outline">
                 Kembali
               </Button>
             </div>
@@ -286,7 +286,7 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Button className="w-full" disabled={pending} size="sm" type="submit">
+              <Button className="min-h-[44px] w-full" disabled={pending} size="sm" type="submit">
                 {pending ? (
                   <>
                     <Loader2Icon className="animate-spin" />
@@ -297,7 +297,7 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
                 )}
               </Button>
               <Button
-                className="w-full"
+                className="min-h-[44px] w-full"
                 disabled={pending}
                 onClick={goBack}
                 size="sm"
@@ -311,7 +311,7 @@ export function LoginWizard({ callbackUrl }: LoginWizardProps) {
         ) : null}
       </form>
 
-      <Button asChild className="w-full" size="sm" variant="outline">
+      <Button asChild className="min-h-[44px] w-full" size="sm" variant="outline">
         <Link href="/">Kembali ke beranda</Link>
       </Button>
     </div>

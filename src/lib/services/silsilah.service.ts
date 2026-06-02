@@ -6,7 +6,6 @@ import { ManageForbiddenError } from "@/lib/auth/person-scope"
 import { isFamilyScope } from "@/lib/auth/person-scope"
 import { getDisplayAge } from "@/lib/silsilah/format"
 import { prisma } from "@/lib/prisma"
-import { getSilsilahTreePayload } from "@/lib/silsilah/tree.server"
 import type {
   PersonDetailLimited,
   PersonWithRelations,
@@ -50,8 +49,6 @@ const personInclude = {
 } as const
 
 export class SilsilahService {
-  static getTreePayload = getSilsilahTreePayload
-
   static getPersonById = cache(async (id: string) => {
     return prisma.person.findUnique({
       where: { id },

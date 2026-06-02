@@ -20,20 +20,6 @@ export const PERSON_AUDIT_FIELDS = [
 
 export type PersonAuditField = (typeof PERSON_AUDIT_FIELDS)[number]
 
-export const PERSON_AUDIT_FIELD_LABELS: Record<PersonAuditField, string> = {
-  fullName: "Nama lengkap",
-  nickname: "Nama panggilan",
-  gender: "Jenis kelamin",
-  birthDate: "Tanggal lahir",
-  birthPlace: "Tempat lahir",
-  isAlive: "Status",
-  deathDate: "Tanggal meninggal",
-  photoUrl: "Foto",
-  phone: "Telepon",
-  address: "Alamat",
-  notes: "Catatan",
-}
-
 export type PersonAuditFieldChange = {
   from: string | null
   to: string | null

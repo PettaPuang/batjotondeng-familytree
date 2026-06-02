@@ -7,7 +7,7 @@ export default function Page() {
     <div className="flex min-h-svh items-center justify-center p-6">
       <div className="flex w-full max-w-4xl flex-col items-center gap-6 text-center">
         <div className="space-y-1">
-          <h1 className="font-heading text-[clamp(0.875rem,3.2vw,1.875rem)] font-semibold whitespace-nowrap">
+          <h1 className="font-heading text-[clamp(0.875rem,3.2vw,1.875rem)] font-semibold text-balance">
             Silsilah Keluarga Puang Batjo Tondeng
           </h1>
           <div className="space-y-0.5">
@@ -20,7 +20,7 @@ export default function Page() {
           </div>
         </div>
 
-        <Button asChild className="mx-auto w-full max-w-xs" size="sm">
+        <Button asChild className="mx-auto min-h-[44px] w-full max-w-xs" size="sm">
           <Link href="/login">Masuk ke Silsilah</Link>
         </Button>
       </div>

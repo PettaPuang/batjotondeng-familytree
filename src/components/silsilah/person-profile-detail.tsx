@@ -21,7 +21,7 @@ const fieldBoxClassName =
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="grid grid-cols-3 items-start gap-4">
+    <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-3">
       <dt className="text-muted-foreground col-span-1 pt-2 text-sm">{label}</dt>
       <dd className="col-span-2">
         <div className={cn(fieldBoxClassName)}>{value}</div>

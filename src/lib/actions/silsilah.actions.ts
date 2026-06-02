@@ -52,8 +52,6 @@ export type PersonSheetState = {
   submittedAt: number | null
 }
 
-export type CreatePersonSheetState = PersonSheetState
-
 export async function createPersonSheetAction(
   _prevState: PersonSheetState,
   formData: FormData,

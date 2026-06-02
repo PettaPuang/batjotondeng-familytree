@@ -19,6 +19,7 @@ import {
 } from "@/lib/silsilah/tree"
 
 type SilsilahPageClientProps = {
+  userName?: string
   treePayload: SilsilahTreePayload
   subjectPersonId?: string
   createOptions: CreatePersonRelationOption
@@ -29,6 +30,7 @@ type SilsilahPageClientProps = {
 }
 
 export function SilsilahPageClient({
+  userName,
   treePayload,
   subjectPersonId,
   createOptions,
@@ -190,6 +192,7 @@ export function SilsilahPageClient({
   return (
     <>
       <SilsilahExplorerClient
+        userName={userName}
         auditError={auditError}
         auditLogs={auditLogs}
         auditOpen={auditOpen}

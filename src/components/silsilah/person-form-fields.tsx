@@ -17,7 +17,7 @@ import { genderLabel } from "@/lib/silsilah/format"
 import { deceasedCheckboxLabel } from "@/lib/silsilah/format"
 
 const detailInputClassName =
-  "bg-input/50 h-8 w-full rounded-2xl border border-transparent px-2.5 text-sm md:text-sm"
+  "bg-input/50 w-full rounded-2xl border border-transparent px-2.5 text-sm md:text-sm"
 
 type PersonFormFieldsProps = {
   person?: Person
@@ -36,7 +36,7 @@ function FormRow({
 }) {
   if (layout === "detail") {
     return (
-      <div className="grid grid-cols-3 items-start gap-4">
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-3">
         <span className="text-muted-foreground col-span-1 pt-2 text-sm">{label}</span>
         <div className="col-span-2">{children}</div>
       </div>
@@ -175,6 +175,7 @@ export function PersonFormFields({
         <>
           <FormRow label="Tanggal lahir" layout={layout}>
             <DatePickerField
+              className={inputClassName}
               defaultValue={person?.birthDate ?? null}
               id={id("birthDate")}
               name="birthDate"
@@ -205,6 +206,7 @@ export function PersonFormFields({
       {isDeceased ? (
         <FormRow label="Tanggal meninggal" layout={layout}>
           <DatePickerField
+            className={inputClassName}
             defaultValue={person?.deathDate ?? null}
             id={id("deathDate")}
             name="deathDate"

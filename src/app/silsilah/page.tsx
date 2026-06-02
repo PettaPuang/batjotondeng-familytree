@@ -17,6 +17,7 @@ type SilsilahPageProps = {
 export default async function SilsilahPage({ searchParams }: SilsilahPageProps) {
   const session = await auth()
   const actorPersonId = session?.user?.personId
+  const userName = session?.user?.name ?? undefined
   const { person: initialSelectedPersonId, audit, view } = await searchParams
   const viewAll = view === "all"
   const initialAuditOpen = audit === "1"
@@ -35,8 +36,9 @@ export default async function SilsilahPage({ searchParams }: SilsilahPageProps) 
   )
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden">
+    <section className="h-full overflow-hidden">
       <SilsilahPageClient
+        userName={userName}
         createOptions={createOptions}
         initialAuditOpen={initialAuditOpen}
         initialSelectedPersonId={initialSelectedPersonId ?? null}

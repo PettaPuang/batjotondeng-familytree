@@ -6,6 +6,7 @@ import { SearchIcon } from "lucide-react"
 
 import { GenealogyTree } from "@/components/silsilah/genealogy-tree"
 import { PersonDetailSheet } from "@/components/silsilah/person-detail-sheet"
+import { SignOutButton } from "@/components/sign-out-button"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
@@ -24,6 +25,7 @@ import type { PersonDetailPayload } from "@/lib/silsilah/types"
 import type { TreeNodePerson, TreePerson } from "@/lib/silsilah/types"
 
 type SilsilahExplorerClientProps = {
+  userName?: string
   persons: TreeNodePerson[]
   memberCount: number
   subjectPersonId?: string
@@ -65,6 +67,7 @@ function personMatchesQuery(person: TreeNodePerson, query: string) {
 }
 
 export function SilsilahExplorerClient({
+  userName,
   persons,
   memberCount,
   subjectPersonId,
@@ -128,16 +131,48 @@ export function SilsilahExplorerClient({
 
   return (
     <>
-      <div className="bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border shadow-sm">
-        <div className="bg-muted/40 flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:max-w-md sm:flex-row sm:items-center">
+      <div className="relative h-full w-full overflow-hidden bg-card">
+        <div className="absolute inset-x-0 bottom-0 top-14 z-0">
+          <GenealogyTree
+            focusPersonId={treeFocusPersonId}
+            onPersonSelect={onOpenPerson}
+            persons={treePersons}
+            selfPersonId={subjectPersonId}
+          />
+        </div>
+
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-30">
+          <div className="pointer-events-auto flex h-14 items-center justify-between gap-3 border-b bg-background/90 px-4 backdrop-blur-md sm:px-6">
+            <div className="min-w-0 flex-1">
+              <h1 className="font-heading truncate text-sm font-semibold">
+                Silsilah Keluarga Puang Batjo Tondeng
+              </h1>
+              {userName ? (
+                <p className="text-muted-foreground truncate text-xs">
+                  Selamat datang, {userName}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {onAddPerson ? (
+                <Button onClick={onAddPerson} size="sm" type="button">
+                  Tambah Anggota
+                </Button>
+              ) : null}
+              <SignOutButton />
+            </div>
+          </div>
+        </div>
+
+        <div className="pointer-events-none absolute left-2 top-16 z-20">
+          <div className="bg-card/90 pointer-events-auto flex w-56 flex-col gap-1.5 rounded-md border p-2 shadow-sm backdrop-blur-sm sm:w-68">
             <Popover onOpenChange={setSearchOpen} open={showSearchResults}>
               <PopoverAnchor asChild>
-                <div className="relative min-w-0 flex-1">
-                  <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+                <div className="relative">
+                  <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
                   <Input
                     aria-label="Cari anggota keluarga"
-                    className="h-9 pl-9"
+                    className="pl-7"
                     onChange={(event) => {
                       setSearchQuery(event.target.value)
                       setSearchOpen(true)
@@ -151,8 +186,9 @@ export function SilsilahExplorerClient({
               </PopoverAnchor>
               <PopoverContent
                 align="start"
-                className="w-[var(--radix-popover-trigger-width)] p-1"
+                className="w-(--radix-popover-trigger-width) p-1"
                 onOpenAutoFocus={(event) => event.preventDefault()}
+                side="bottom"
               >
                 {searchResults.length === 0 ? (
                   <p className="text-muted-foreground px-2 py-3 text-center text-sm">
@@ -172,7 +208,7 @@ export function SilsilahExplorerClient({
                         <li key={person.id}>
                           <button
                             className={cn(
-                              "hover:bg-muted/70 block w-full rounded-md px-2 py-1.5 text-left transition-colors",
+                              "hover:bg-muted/70 flex min-h-[44px] w-full flex-col justify-center rounded-md px-2 py-3 text-left transition-colors",
                             )}
                             onClick={() => handleSearchSelect(person.id)}
                             type="button"
@@ -196,47 +232,24 @@ export function SilsilahExplorerClient({
                 )}
               </PopoverContent>
             </Popover>
-          </div>
-
-          <div className="flex min-w-0 flex-wrap items-center gap-3 sm:justify-end">
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={viewAll}
-                id="view-all-toggle"
-                onCheckedChange={onViewToggle}
-              />
+            <div className="-mx-2 h-px bg-border" />
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <label
-                className="text-muted-foreground cursor-pointer text-sm"
+                className="text-muted-foreground flex cursor-pointer items-center gap-1.5 text-xs whitespace-nowrap select-none"
                 htmlFor="view-all-toggle"
               >
-                Tampilkan semua silsilah
+                <Switch
+                  checked={viewAll}
+                  id="view-all-toggle"
+                  onCheckedChange={onViewToggle}
+                  size="sm"
+                />
+                Tampilkan semua
               </label>
+              <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                {memberCount} anggota
+              </span>
             </div>
-            <span className="text-muted-foreground shrink-0 text-sm tabular-nums">
-              {memberCount} anggota
-            </span>
-
-            {onAddPerson ? (
-              <Button
-                className="shrink-0"
-                onClick={onAddPerson}
-                size="sm"
-                type="button"
-              >
-                Tambah Anggota
-              </Button>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="flex min-h-0 flex-1 p-2 sm:p-4">
-          <div className="h-full min-h-0 w-full">
-            <GenealogyTree
-              focusPersonId={treeFocusPersonId}
-              onPersonSelect={onOpenPerson}
-              persons={treePersons}
-              selfPersonId={subjectPersonId}
-            />
           </div>
         </div>
       </div>

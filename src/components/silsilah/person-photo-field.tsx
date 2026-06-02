@@ -125,7 +125,7 @@ export function PersonPhotoField({
 
   if (layout === "detail") {
     return (
-      <div className="grid grid-cols-3 items-start gap-4">
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-3">
         <span className="text-muted-foreground col-span-1 pt-2 text-sm">Foto</span>
         <div className={cn("col-span-2", uploading && "opacity-70")}>{controls}</div>
       </div>

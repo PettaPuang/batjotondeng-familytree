@@ -67,7 +67,7 @@ export function PersonSummaryRow({
           <p
             className={cn(
               "text-muted-foreground truncate leading-tight tabular-nums",
-              isSidebar ? "text-[11px] lg:text-xs" : "text-[11px] lg:text-xs",
+              "text-xs",
             )}
             title={subtitle}
           >
